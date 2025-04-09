@@ -1,0 +1,15 @@
+# Netlify Build Configuration for file-sharing-app (Client)
+
+[build]
+  # Command to build the Next.js client
+  command = "npm run build"
+
+  # Directory (relative to 'base') containing the built site artifacts
+  publish = ".next"
+
+  # Directory (relative to root) where the client app lives
+  base = "client"
+
+# Ensure the Next.js runtime plugin is used
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

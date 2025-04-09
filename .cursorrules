@@ -1,0 +1,61 @@
+# .cursorrules
+# Project description for Cursor AI
+
+project_type: full-stack monorepo
+description: Peer-to-peer file sharing application using WebRTC/WebTorrent for direct transfers and a central server for signaling/discovery.
+
+structure:
+  - name: client
+    description: Frontend application (Next.js 15, React 18, TypeScript, Tailwind CSS, shadcn/ui) responsible for UI and P2P file transfer logic (WebRTC, WebTorrent).
+    language: TypeScript
+    framework: Next.js
+    key_files:
+      - client/package.json
+      - client/next.config.mjs
+      - client/app/layout.tsx # Assuming standard structure
+      - client/app/page.tsx   # Assuming standard structure
+    key_directories:
+      - client/app
+      - client/components
+      - client/lib
+      - client/hooks
+    libraries:
+      - react@18
+      - next@15
+      - tailwindcss
+      - shadcn/ui
+      - peerjs
+      - simple-peer
+      - webtorrent
+      - ws # Client-side WebSocket usage
+
+  - name: server
+    description: Backend signaling/discovery server (Node.js, Express, TypeScript, WebSockets) responsible for managing client connections and facilitating P2P setup. Detects LAN subnets for local discovery.
+    language: TypeScript
+    framework: Express.js
+    key_files:
+      - server/package.json
+      - server/src/index.ts # Main entry point
+      - server/src/ws/handlers.ts # Core WebSocket logic (inferred)
+      - server/src/routes/api.ts  # API routes (inferred)
+      - server/src/config.ts      # Configuration (inferred)
+      - server/src/utils/network.ts # Network utilities (inferred)
+    key_directories:
+      - server/src
+    libraries:
+      - node.js
+      - express
+      - ws # Server-side WebSocket library
+      - nanoid
+
+important_files:
+  - package.json # Root project management scripts
+  - .nvmrc       # Node version specification
+
+# Focus areas for AI assistance:
+# - Client-side P2P logic (WebRTC connection setup, WebTorrent transfer)
+# - Server-side WebSocket handling (signaling, room management, heartbeats)
+# - Next.js App Router features and state management
+# - shadcn/ui component implementation and customization
+# - TypeScript type safety and best practices across client/server
+# - LAN discovery mechanisms (subnet detection)
