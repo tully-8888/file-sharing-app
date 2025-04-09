@@ -1,0 +1,28 @@
+{
+  "name": "file-sharing-app-server",
+  "version": "1.0.0",
+  "description": "LAN File Sharing Application Server",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "clean": "rm -f package-lock.json && rm -rf node_modules",
+    "clean:install": "npm run clean && npm install",
+    "lint": "eslint src/**/*.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@types/express": "^5.0.1",
+    "@types/node": "^20.12.7",
+    "@types/ws": "^8.18.0",
+    "express": "^4.21.2",
+    "nanoid": "^5.1.5",
+    "ws": "^8.18.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0",
+    "tsx": "^4.19.3"
+  }
+} 

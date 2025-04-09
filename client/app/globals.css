@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 270 70% 5%;
+    --foreground: 0 0% 100%;
+
+    --card: 270 70% 7%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 270 70% 7%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 270 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 50% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 270 50% 15%;
+    --muted-foreground: 270 10% 70%;
+
+    --accent: 270 50% 20%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 50% 15%;
+    --input: 270 50% 15%;
+    --ring: 270 100% 60%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 270 70% 5%;
+    --foreground: 0 0% 100%;
+
+    --card: 270 70% 7%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 270 70% 7%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 270 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 50% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 270 50% 15%;
+    --muted-foreground: 270 10% 70%;
+
+    --accent: 270 50% 20%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 270 50% 15%;
+    --input: 270 50% 15%;
+    --ring: 270 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    background: linear-gradient(to bottom right, hsl(270, 70%, 5%), hsl(270, 70%, 10%));
+    min-height: 100vh;
+  }
+}
+
+.gradient-text {
+  background: linear-gradient(to right, #9d4edd, #5a189a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(157, 78, 221, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(157, 78, 221, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(157, 78, 221, 0);
+  }
+}
+
+.highlight-pulse {
+  animation: highlightPulse 2s ease-out;
+}
+

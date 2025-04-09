@@ -1,0 +1,21 @@
+{
+    "name": "file-sharing-app",
+    "version": "0.1.1",
+    "private": true,
+    "scripts": {
+      "start:frontend": "cd client && npm run dev",
+      "start:backend": "cd server && npm run dev",
+      "start": "npm run start:backend & npm run start:frontend",
+      "clean:frontend": "cd client && npm run clean",
+      "clean:backend": "cd server && npm run clean",
+      "clean": "npm run clean:frontend & npm run clean:backend",
+      "clean:install:frontend": "cd client && npm run clean:install",
+      "clean:install:backend": "cd server && npm run clean:install",
+      "clean:install": "npm run clean:install:frontend && npm run clean:install:backend",
+      "build:frontend": "cd client && npm run build",
+      "build:backend": "cd server && npm run build",
+      "build": "npm run build:frontend && npm run build:backend",
+      "start:prod:server": "npm run build && cd server && node dist/index.js",
+      "build:prod:backend": "cd server && npm i && npm run build"
+    }
+}
