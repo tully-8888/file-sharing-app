@@ -26,6 +26,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
+import Image from "next/image";
 
 interface SharedFileInfo {
   id: string;
@@ -755,7 +756,7 @@ export function LANFileSharing() {
         const torrentFile = downloadedFile.torrent.files[0];
         
         if (torrentFile) {
-          torrentFile.getBuffer((err, buffer) => {
+          torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
             if (err || !buffer) return;
             
             try {
@@ -804,47 +805,35 @@ export function LANFileSharing() {
           if (torrentFile) {
             if (fileType === 'text') {
               // For text files, get the content
-              torrentFile.getBuffer((err, buffer) => {
+              torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
                 if (err || !buffer) return;
                 
                 try {
                   const textContent = new TextDecoder().decode(buffer);
                   
-                  // Update availableFiles with the text content
-                  setAvailableFiles(prev => 
-                    prev.map(f => {
-                      if (f.id === availableFile.id) {
-                        return {
-                          ...f,
-                          type: fileType,
-                          previewContent: textContent.slice(0, 1000) // Limit preview to first 1000 chars
-                        };
-                      }
-                      return f;
-                    })
-                  );
+                  // For local file sharing, update the preview directly
+                  setAvailableFiles((prev: SharedFileInfo[]) => prev.map((f: SharedFileInfo) => {
+                    if (f.id === file.id) {
+                      return { ...f, previewContent: textContent };
+                    }
+                    return f;
+                  }));
                 } catch (error) {
                   console.error("Error decoding text file:", error);
                 }
               });
             } else {
               // For other file types, get blob URL
-              torrentFile.getBlobURL((err, url) => {
+              torrentFile.getBlobURL((err: Error | null, url?: string) => {
                 if (err || !url) return;
                 
                 // Update availableFiles with the preview URL
-                setAvailableFiles(prev => 
-                  prev.map(f => {
-                    if (f.id === availableFile.id) {
-                      return {
-                        ...f,
-                        type: fileType,
-                        previewUrl: url
-                      };
-                    }
-                    return f;
-                  })
-                );
+                setAvailableFiles((prev: SharedFileInfo[]) => prev.map((f: SharedFileInfo) => {
+                  if (f.id === file.id) {
+                    return { ...f, previewUrl: url };
+                  }
+                  return f;
+                }));
               });
             }
           }
@@ -1086,11 +1075,16 @@ export function LANFileSharing() {
           
           <div className="mt-4">
             {previewFile?.type === 'image' && previewFile.previewUrl && (
-              <img 
-                src={previewFile.previewUrl} 
-                alt={previewFile.name} 
-                className="max-w-full h-auto rounded-md"
-              />
+              <div className="relative w-full h-auto max-h-[70vh]">
+                <Image 
+                  src={previewFile.previewUrl} 
+                  alt={previewFile.name} 
+                  width={800}
+                  height={600}
+                  className="max-w-full h-auto rounded-md object-contain"
+                  unoptimized={true} // Use unoptimized for blob URLs
+                />
+              </div>
             )}
             
             {previewFile?.type === 'video' && previewFile.previewUrl && (
@@ -1401,11 +1395,16 @@ export function LANFileSharing() {
                               <div className="mt-3" onClick={() => openPreview(file)}>
                                 {fileType === 'image' && file.previewUrl && (
                                   <div className="relative group cursor-pointer rounded-md overflow-hidden">
-                                    <img 
-                                      src={file.previewUrl} 
-                                      alt={file.name}
-                                      className="h-24 w-auto max-w-[300px] object-cover" 
-                                    />
+                                    <div className="relative h-24 w-auto max-w-[300px]">
+                                      <Image 
+                                        src={file.previewUrl} 
+                                        alt={file.name}
+                                        width={300}
+                                        height={150}
+                                        className="h-24 w-auto max-w-[300px] object-cover"
+                                        unoptimized={true} // Use unoptimized for blob URLs
+                                      />
+                                    </div>
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                                       <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                                     </div>

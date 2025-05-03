@@ -85,7 +85,71 @@ export function useLANDiscovery(): LANDiscoveryReturn {
   const { toast } = useToast();
   const wsRef = useRef<WebSocket | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+  
+  // Use refs to store function implementations to avoid circular dependencies
+  const joinRoomRef = useRef<(roomId: string) => void>();
+  const leaveRoomRef = useRef<() => void>();
+  
+  // Update refs with the latest implementations
+  useEffect(() => {
+    // Function to join an existing room - implementation
+    const joinRoomImpl = (roomId: string) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        console.error("[LANDiscovery] WebSocket connection not open, cannot join room");
+        toast({
+          title: "Connection Error",
+          description: "Not connected to server. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Set current room ID
+      setCurrentRoomId(roomId);
+      
+      // Clear existing users
+      setLocalUsers([]);
+      
+      // Send JOIN message with room ID
+      wsRef.current.send(JSON.stringify({
+        type: 'JOIN',
+        userId: currentUser.id,
+        userName: currentUser.name,
+        peerId: currentUser.peerId,
+        avatar: currentUser.avatar,
+        roomId: roomId
+      }));
+      
+      toast({
+        title: "Joined Room",
+        description: `Successfully joined room ${roomId}`,
+      });
+    };
+    
+    // Function to leave the current room - implementation
+    const leaveRoomImpl = () => {
+      if (currentRoomId && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Reconnect without room ID to join default subnet room
+        wsRef.current.send(JSON.stringify({
+          type: 'JOIN',
+          userId: currentUser.id,
+          userName: currentUser.name,
+          peerId: currentUser.peerId,
+          avatar: currentUser.avatar
+        }));
+        
+        setCurrentRoomId(null);
+        toast({
+          title: "Left Room",
+          description: "Returned to default LAN room",
+        });
+      }
+    };
+    
+    joinRoomRef.current = joinRoomImpl;
+    leaveRoomRef.current = leaveRoomImpl;
+  }, [currentUser, toast, currentRoomId, setCurrentRoomId, setLocalUsers]);
+  
   // Function to send a message to a specific peer or broadcast to all peers
   const sendMessage = useCallback((message: LANMessage) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
@@ -110,8 +174,8 @@ export function useLANDiscovery(): LANDiscoveryReturn {
   // Function to create a new room
   const createRoom = useCallback(async (): Promise<string> => {
     // If we're already in a room, leave it first
-    if (currentRoomId) {
-      leaveRoom();
+    if (currentRoomId && leaveRoomRef.current) {
+      leaveRoomRef.current();
     }
 
     try {
@@ -137,7 +201,9 @@ export function useLANDiscovery(): LANDiscoveryReturn {
       }
       
       // Join the newly created room
-      joinRoom(data.roomId);
+      if (joinRoomRef.current) {
+        joinRoomRef.current(data.roomId);
+      }
       
       return data.roomId;
     } catch (error) {
@@ -150,60 +216,19 @@ export function useLANDiscovery(): LANDiscoveryReturn {
       throw error;
     }
   }, [serverAddress, currentRoomId, toast]);
-
-  // Function to join an existing room
+  
+  // Wrapper functions that call the implementations via refs
   const joinRoom = useCallback((roomId: string) => {
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      console.error("[LANDiscovery] WebSocket connection not open, cannot join room");
-      toast({
-        title: "Connection Error",
-        description: "Not connected to server. Please try again.",
-        variant: "destructive",
-      });
-      return;
+    if (joinRoomRef.current) {
+      joinRoomRef.current(roomId);
     }
-    
-    // Set current room ID
-    setCurrentRoomId(roomId);
-    
-    // Clear existing users
-    setLocalUsers([]);
-    
-    // Send JOIN message with room ID
-    wsRef.current.send(JSON.stringify({
-      type: 'JOIN',
-      userId: currentUser.id,
-      userName: currentUser.name,
-      peerId: currentUser.peerId,
-      avatar: currentUser.avatar,
-      roomId: roomId
-    }));
-    
-    toast({
-      title: "Joined Room",
-      description: `Successfully joined room ${roomId}`,
-    });
-  }, [currentUser, toast]);
-
-  // Function to leave the current room
+  }, []);
+  
   const leaveRoom = useCallback(() => {
-    if (currentRoomId && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      // Reconnect without room ID to join default subnet room
-      wsRef.current.send(JSON.stringify({
-        type: 'JOIN',
-        userId: currentUser.id,
-        userName: currentUser.name,
-        peerId: currentUser.peerId,
-        avatar: currentUser.avatar
-      }));
-      
-      setCurrentRoomId(null);
-      toast({
-        title: "Left Room",
-        description: "Returned to default LAN room",
-      });
+    if (leaveRoomRef.current) {
+      leaveRoomRef.current();
     }
-  }, [currentRoomId, currentUser, toast]);
+  }, []);
 
   // Connect to the WebSocket server only in the browser
   useEffect(() => {

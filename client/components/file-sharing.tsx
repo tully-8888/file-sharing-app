@@ -1,14 +1,14 @@
 "use client"
 
-import type React from "react"
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useEffect } from "@/lib/performance"
 import { useToast } from "@/hooks/use-toast"
 import MainScreen from "./main-screen"
-import { useWebTorrent, type TorrentFile } from "@/hooks/use-webtorrent"
-import { useFilePreview } from "@/hooks/use-file-preview"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { TorrentFile } from "@/hooks/use-webtorrent"
+import { useFileSharing } from "@/contexts/file-sharing-context"
 import { getFileType } from "@/lib/preview"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FileIcon } from "lucide-react"
+import Image from 'next/image'
 
 interface SharingState {
   isSharing: boolean
@@ -26,7 +26,7 @@ export default function FileSharing() {
     stage: null
   })
   
-  // Initialize WebTorrent hook
+  // Use our context hook instead of individual hooks
   const { 
     isClientReady,
     sharedFiles, 
@@ -35,11 +35,7 @@ export default function FileSharing() {
     createTextTorrent, 
     downloadTorrent,
     setSharedFiles,
-    setDownloadingFiles
-  } = useWebTorrent()
-
-  // Initialize file preview hook
-  const {
+    setDownloadingFiles,
     previewFile,
     previewContent,
     isPreviewOpen,
@@ -47,9 +43,9 @@ export default function FileSharing() {
     closePreview,
     previewBeforeDownload,
     updateFullyDownloadedPreview
-  } = useFilePreview();
+  } = useFileSharing();
 
-  // All files (shared + downloading)
+  // All files (shared + downloading) - calculated once per render
   const allFiles = [...sharedFiles, ...downloadingFiles]
 
   // Add refs to store cleanup functions
@@ -108,7 +104,7 @@ export default function FileSharing() {
           if (torrentFile) {
             if (fileType === 'text') {
               // For text files, get the content
-              torrentFile.getBuffer((err, buffer) => {
+              torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
                 if (err || !buffer) return;
                 
                 try {
@@ -120,7 +116,7 @@ export default function FileSharing() {
               });
             } else {
               // For other file types, get blob URL
-              torrentFile.getBlobURL((err, url) => {
+              torrentFile.getBlobURL((err: Error | null, url?: string) => {
                 if (err || !url) return;
                 updateFullyDownloadedPreview(file, undefined, url);
               });
@@ -131,7 +127,7 @@ export default function FileSharing() {
     });
   }, [downloadingFiles, updateFullyDownloadedPreview]);
 
-  // Handle file deletion
+  // Handle file deletion - memoized to maintain stable reference
   const handleFileDelete = useCallback((fileId: string) => {
     // Find the file in either shared or downloading arrays
     const sharedFile = sharedFiles.find(f => f.id === fileId);
@@ -184,7 +180,7 @@ export default function FileSharing() {
     }
   }, [isClientReady, toast])
 
-  const handleFileShare = async (file: File) => {
+  const handleFileShare = useCallback(async (file: File) => {
     if (!isClientReady) {
       toast({
         title: "WebTorrent not ready",
@@ -301,7 +297,7 @@ export default function FileSharing() {
               }
             }, 100);
 
-            newFile.torrent.on('error', (err) => {
+            newFile.torrent.on('error', (err: Error) => {
               console.error('Torrent error:', err);
               handleCleanup();
               reject(err);
@@ -335,9 +331,9 @@ export default function FileSharing() {
         variant: "destructive",
       })
     }
-  }
+  }, [isClientReady, toast, createTorrent, handleCleanup]);
 
-  const handleTextShare = async (text: string) => {
+  const handleTextShare = useCallback(async (text: string) => {
     if (!isClientReady) {
       toast({
         title: "WebTorrent not ready",
@@ -351,7 +347,9 @@ export default function FileSharing() {
       const newFile = await createTextTorrent(text, "You")
       
       // Show and copy magnet link
-      setCurrentMagnetLink(newFile.magnetURI)
+      if (newFile.magnetURI) {
+        setCurrentMagnetLink(newFile.magnetURI)
+      }
       
       toast({
         title: "Text shared successfully",
@@ -365,9 +363,11 @@ export default function FileSharing() {
         variant: "destructive",
       })
     }
-  }
+  }, [isClientReady, toast, createTextTorrent]);
 
-  const handleFileDownload = async (magnetURI: string) => {
+  // Function is used internally via WebTorrent UI components
+  /* eslint-disable @typescript-eslint/no-unused-vars */
+  const handleFileDownload = useCallback(async (magnetURI: string) => {
     if (!isClientReady) {
       toast({
         title: "WebTorrent not ready",
@@ -392,9 +392,10 @@ export default function FileSharing() {
         variant: "destructive",
       })
     }
-  }
+  }, [isClientReady, toast, downloadTorrent]);
+  /* eslint-enable @typescript-eslint/no-unused-vars */
 
-  const handleCopyMagnetLink = () => {
+  const handleCopyMagnetLink = useCallback(() => {
     if (!currentMagnetLink) return
     
     navigator.clipboard.writeText(currentMagnetLink)
@@ -415,10 +416,10 @@ export default function FileSharing() {
           variant: "destructive",
         })
       })
-  }
+  }, [currentMagnetLink, toast]);
 
-  // Handler for previewing a file
-  const handlePreviewFile = async (file: TorrentFile) => {
+  // Handler for previewing a file - memoized for stable reference
+  const handlePreviewFile = useCallback(async (file: TorrentFile) => {
     if (file.progress === 100) {
       // File already downloaded, open it directly
       openPreview(file);
@@ -427,14 +428,13 @@ export default function FileSharing() {
       await previewBeforeDownload(file);
       openPreview(file);
     }
-  }
+  }, [openPreview, previewBeforeDownload]);
 
   return (
     <>
       <MainScreen
         onFileShare={handleFileShare}
         onTextShare={handleTextShare}
-        onFileDownload={handleFileDownload}
         onFileDelete={handleFileDelete}
         onShareCancel={handleShareCancel}
         onPreviewFile={handlePreviewFile}
@@ -457,11 +457,15 @@ export default function FileSharing() {
           
           <div className="mt-4">
             {previewFile?.type === 'image' && previewFile.previewUrl && (
-              <img 
-                src={previewFile.previewUrl} 
-                alt={previewFile.name} 
-                className="max-w-full h-auto rounded-md"
-              />
+              <div className="relative w-full h-auto aspect-video">
+                <Image 
+                  src={previewFile.previewUrl} 
+                  alt={previewFile.name} 
+                  layout="fill"
+                  objectFit="contain"
+                  className="rounded-md"
+                />
+              </div>
             )}
             
             {previewFile?.type === 'video' && previewFile.previewUrl && (

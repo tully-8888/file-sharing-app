@@ -1,16 +1,19 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
+import { Inter as FontSans } from "next/font/google"
 import "./globals.css"
+import { cn } from "@/lib/utils"
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
+import { FileSharingProvider } from "@/contexts/file-sharing-context"
 
-const inter = Inter({ subsets: ["latin"] })
+const fontSans = FontSans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
 
 export const metadata: Metadata = {
-  title: "AirShare - P2P File Sharing",
-  description: "Share files easily on your local network with AirShare",
-  icons: {
-    icon: "/favicon.ico",
-  }
+  title: "File Share App",
+  description: "Privacy-focused peer-to-peer file sharing",
 }
 
 export default function RootLayout({
@@ -19,10 +22,23 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
-          {children}
+    <html lang="en">
+      <body
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased",
+          fontSans.variable
+        )}
+      >
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <FileSharingProvider>
+            {children}
+            <Toaster />
+          </FileSharingProvider>
         </ThemeProvider>
       </body>
     </html>

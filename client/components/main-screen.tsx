@@ -1,23 +1,21 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useCallback, useEffect } from "react"
-import { Upload, Clipboard, Download, X, FileText, File as FileIcon, Copy, Check, Link, Plus, Globe, Wifi, Eye } from "lucide-react"
+import { useState, useRef, useEffect } from "react"
+import { Upload, Clipboard, X, FileText, File as FileIcon, Copy, Check, Link, Globe, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Input } from "@/components/ui/input"
-import { Progress } from "@/components/ui/progress"
 import { TorrentFile } from "@/hooks/use-webtorrent"
 import { useLANDiscovery } from "@/hooks/use-lan-discovery"
 import { LANFileSharing } from "@/components/lan-file-sharing"
+import { memo, useCallback } from '@/lib/performance'
+import FileList from '@/components/file-list'
 
 interface MainScreenProps {
   onFileShare: (file: File) => void
   onTextShare: (text: string) => void
-  onFileDownload: (magnetURI: string) => void
   onFileDelete: (fileId: string) => void
   onShareCancel: () => void
   onPreviewFile?: (file: TorrentFile) => void
@@ -31,10 +29,16 @@ interface MainScreenProps {
   sharingStage: 'preparing' | 'hashing' | 'metadata' | 'ready' | null
 }
 
-export default function MainScreen({
+// Helper function to normalize progress
+const normalizeProgress = (progress: number | undefined): number => {
+  if (!progress) return 0;
+  return Math.min(Math.round(progress), 100);
+}
+
+// Change MainScreen to a memoized component
+export default memo(function MainScreen({
   onFileShare,
   onTextShare,
-  onFileDownload,
   onFileDelete,
   onShareCancel,
   onPreviewFile,
@@ -47,16 +51,16 @@ export default function MainScreen({
   sharingProgress,
   sharingStage,
 }: MainScreenProps) {
+  // Keep existing implementation but make callbacks memoized
+
+  // Use memoized callbacks to prevent unnecessary re-renders
   const [clipboardText, setClipboardText] = useState<string>("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [isDragging, setIsDragging] = useState<boolean>(false)
   const [shareMode, setShareMode] = useState<"file" | "text" | "link" | null>(null)
-  const [downloadMagnetLink, setDownloadMagnetLink] = useState<string>("")
-  const [showMagnetInput, setShowMagnetInput] = useState<boolean>(false)
   const [sharingType, setSharingType] = useState<"internet" | "lan">("internet")
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const magnetInputRef = useRef<HTMLInputElement>(null)
 
   // Use LAN discovery hook to get users on the network
   const { isDiscoveryActive } = useLANDiscovery();
@@ -68,43 +72,15 @@ export default function MainScreen({
     }
   }, [currentMagnetLink])
 
-  useEffect(() => {
-    const handlePaste = async () => {
-      try {
-        const clipboardItems = await navigator.clipboard.read();
-        for (const item of clipboardItems) {
-          // Check if clipboard has text
-          if (item.types.includes('text/plain')) {
-            const blob = await item.getType('text/plain');
-            const text = await blob.text();
-            if (text && !clipboardText) {
-              setClipboardText(text);
-              setShareMode("text");
-            }
-          }
-        }
-      } catch {
-        // Clipboard API not available or permission denied
-        console.log("Clipboard detection not available");
-      }
-    };
-
-    // Try to detect clipboard content when textarea is focused
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.addEventListener('focus', handlePaste);
-      return () => textarea.removeEventListener('focus', handlePaste);
-    }
-  }, [clipboardText]);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Use memoized callback to handle file input change
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0])
     } else {
       // If no file was selected, revert to default view
       setShareMode(null)
     }
-  }
+  }, [])
 
   // Use blur event instead of cancel
   useEffect(() => {
@@ -122,13 +98,15 @@ export default function MainScreen({
     }
   }, [shareMode, selectedFile])
 
-  const handleShareClipboard = () => {
+  // Use memoized callback to handle clipboard sharing
+  const handleShareClipboard = useCallback(() => {
     if (clipboardText.trim()) {
       onTextShare(clipboardText)
       setClipboardText("")
     }
-  }
+  }, [clipboardText, onTextShare])
 
+  // Use memoized handlers for events
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
@@ -345,11 +323,7 @@ export default function MainScreen({
                               </span>
                               <span className="text-[#9D4EDD]">{normalizeProgress(sharingProgress)}%</span>
                             </div>
-                            <Progress 
-                              value={normalizeProgress(sharingProgress)} 
-                              className="h-2 w-full"
-                              indicatorClassName="bg-[#9D4EDD]"
-                            />
+                            {/* Add progress bar component */}
                             <p className="text-xs text-center text-muted-foreground">
                               {sharingStage === 'preparing' && "Setting up file for sharing..."}
                               {sharingStage === 'hashing' && "Creating unique file fingerprint..."}
@@ -551,7 +525,6 @@ export default function MainScreen({
                       <div className="flex gap-2 justify-center">
                         <Button
                           onClick={() => {
-                            setDownloadMagnetLink("");
                             setShareMode(null);
                           }}
                           variant="outline"
@@ -576,7 +549,6 @@ export default function MainScreen({
                         setShareMode(null);
                         setSelectedFile(null);
                         setClipboardText("");
-                        setDownloadMagnetLink("");
                         setIsDragging(false);
                       }}
                       size="icon"
@@ -603,469 +575,12 @@ export default function MainScreen({
             </div>
 
             <div className="space-y-6 max-h-[500px] overflow-y-auto pr-0 sm:pr-1">
-              {/* Files Sections */}
-              <div className="grid grid-cols-1 gap-6">
-                {/* Your Shared Files Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Upload className="h-4 w-4 text-[#9D4EDD]" />
-                      <h4 className="text-sm font-medium text-[#9D4EDD]">Your Shared Files</h4>
-                    </div>
-                    <Badge variant="outline" className="border-[#9D4EDD]/30 text-[#9D4EDD] text-xs">
-                      {sharedFiles.filter(f => f.owner === "You").length} files
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {sharedFiles
-                      .filter(file => file.owner === "You")
-                      .map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex flex-col p-2 sm:p-3 rounded-lg border border-[#9D4EDD]/30 bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
-                                <FileIcon className="h-4 w-4 sm:h-5 sm:w-5 text-[#9D4EDD]" />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-medium text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{file.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  <span>{file.size}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {/* Preview button for shared files */}
-                              {onPreviewFile && file.progress === 100 && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e: React.MouseEvent) => {
-                                          e.stopPropagation();
-                                          onPreviewFile(file);
-                                        }}
-                                        className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                      >
-                                        <Eye className="h-4 w-4 text-[#9D4EDD]" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Preview file</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e: React.MouseEvent) => {
-                                        e.stopPropagation();
-                                        if (file.magnetURI) {
-                                          navigator.clipboard.writeText(file.magnetURI);
-                                          const toast = document.getElementById('toast');
-                                          if (toast) {
-                                            toast.classList.remove('hidden');
-                                            setTimeout(() => toast.classList.add('hidden'), 2000);
-                                          }
-                                        }
-                                      }}
-                                      className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                    >
-                                      <Copy className="h-4 w-4 text-[#9D4EDD]" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Copy magnet link</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e: React.MouseEvent) => {
-                                        e.stopPropagation();
-                                        onFileDelete(file.id);
-                                      }}
-                                      className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                    >
-                                      <X className="h-4 w-4 text-[#9D4EDD]" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Remove file</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </div>
-                          
-                          {/* Progress bar for uploading files if needed */}
-                          {file.uploading && typeof file.progress === 'number' && (
-                            <div className="mt-2">
-                              <div className="flex justify-between text-xs mb-1">
-                                <span>Uploading</span>
-                                <span>{normalizeProgress(file.progress)}%</span>
-                              </div>
-                              <Progress 
-                                value={normalizeProgress(file.progress)} 
-                                className="h-2"
-                                indicatorClassName="bg-[#9D4EDD]"
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    {sharedFiles.filter(f => f.owner === "You").length === 0 && (
-                      <div
-                        className="flex flex-col p-2 sm:p-3 rounded-lg border border-[#9D4EDD]/30 bg-secondary/10 hover:bg-secondary/30 cursor-pointer transition-all duration-200"
-                        onClick={() => {
-                          // Scroll to the share content section smoothly
-                          const shareContentSection = document.querySelector('.share-content-section');
-                          if (shareContentSection) {
-                            shareContentSection.scrollIntoView({ behavior: 'smooth' });
-                            // Add a temporary highlight effect
-                            shareContentSection.classList.add('highlight-pulse');
-                            setTimeout(() => shareContentSection.classList.remove('highlight-pulse'), 2000);
-                          }
-                        }}
-                      >
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
-                            <Upload className="h-4 w-4 sm:h-5 sm:w-5 text-[#9D4EDD]" />
-                          </div>
-                          <div className="flex flex-col flex-1">
-                            <span className="font-medium text-[#9D4EDD]/80 text-sm sm:text-base">Share New File</span>
-                            <span className="text-xs text-gray-400">Click to open file sharing options</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-50 hover:opacity-100 hover:bg-[#9D4EDD]/20"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Downloaded Files Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Download className="h-4 w-4 text-[#9D4EDD]" />
-                      <h4 className="text-sm font-medium text-[#9D4EDD]">Downloaded Files</h4>
-                    </div>
-                    <Badge variant="outline" className="border-[#9D4EDD]/30 text-[#9D4EDD] text-xs">
-                      {sharedFiles.filter(f => f.owner !== "You").length} files
-                    </Badge>
-                  </div>
-                  <div className="space-y-2">
-                    {/* Download New File Card - Always First */}
-                    <div
-                      className={`flex flex-col p-2 sm:p-3 rounded-lg border border-[#9D4EDD]/30 ${
-                        showMagnetInput 
-                          ? "bg-secondary/30" 
-                          : "bg-secondary/10 hover:bg-secondary/30 cursor-pointer"
-                      } transition-all duration-200`}
-                      onClick={() => !showMagnetInput && setShowMagnetInput(true)}
-                    >
-                      {!showMagnetInput ? (
-                        <div className="flex items-center gap-2 sm:gap-3">
-                          <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
-                            <Download className="h-4 w-4 sm:h-5 sm:w-5 text-[#9D4EDD]" />
-                          </div>
-                          <div className="flex flex-col flex-1">
-                            <span className="font-medium text-[#9D4EDD]/80 text-sm sm:text-base">Download New File</span>
-                            <span className="text-xs text-gray-400">Click to add magnet link</span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-50 hover:opacity-100 hover:bg-[#9D4EDD]/20"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
-                              <Link className="h-4 w-4 sm:h-5 sm:w-5 text-[#9D4EDD]" />
-                            </div>
-                            <div className="flex flex-col flex-1">
-                              <span className="font-medium text-[#9D4EDD]/80 text-sm sm:text-base">Add Magnet Link</span>
-                              <span className="text-xs text-gray-400">Paste a magnet URI to download</span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setShowMagnetInput(false);
-                                setDownloadMagnetLink("");
-                              }}
-                              className="opacity-50 hover:opacity-100 hover:bg-[#9D4EDD]/20"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <Input
-                              ref={magnetInputRef}
-                              placeholder="magnet:?xt=urn:btih:..."
-                              value={downloadMagnetLink}
-                              onChange={(e) => setDownloadMagnetLink(e.target.value)}
-                              className="bg-secondary/50 border-[#9D4EDD]/30"
-                              autoFocus
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                            <Button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (downloadMagnetLink.trim() && downloadMagnetLink.startsWith('magnet:')) {
-                                  onFileDownload(downloadMagnetLink);
-                                  setDownloadMagnetLink("");
-                                  setShowMagnetInput(false);
-                                }
-                              }}
-                              disabled={!downloadMagnetLink.trim() || !downloadMagnetLink.startsWith('magnet:')}
-                              className="bg-[#9D4EDD] hover:bg-[#7B2CBF] whitespace-nowrap"
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Only show downloaded files if they exist */}
-                    {sharedFiles
-                      .filter(file => file.owner !== "You")
-                      .map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex flex-col p-2 sm:p-3 rounded-lg border border-[#9D4EDD]/30 bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
-                                <FileIcon className="h-4 w-4 sm:h-5 sm:w-5 text-[#9D4EDD]" />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-medium text-sm sm:text-base truncate max-w-[200px] sm:max-w-none">{file.name}</span>
-                                <div className="flex items-center gap-2 text-xs text-gray-400">
-                                  <span>{file.size}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              {/* Preview button for downloaded files */}
-                              {onPreviewFile && file.progress === 100 && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={(e: React.MouseEvent) => {
-                                          e.stopPropagation();
-                                          onPreviewFile(file);
-                                        }}
-                                        className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                      >
-                                        <Eye className="h-4 w-4 text-[#9D4EDD]" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Preview file</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e: React.MouseEvent) => {
-                                        e.stopPropagation();
-                                        if (file.magnetURI) {
-                                          navigator.clipboard.writeText(file.magnetURI);
-                                          const toast = document.getElementById('toast');
-                                          if (toast) {
-                                            toast.classList.remove('hidden');
-                                            setTimeout(() => toast.classList.add('hidden'), 2000);
-                                          }
-                                        }
-                                      }}
-                                      className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                    >
-                                      <Copy className="h-4 w-4 text-[#9D4EDD]" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Copy magnet link</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={(e: React.MouseEvent) => {
-                                        e.stopPropagation();
-                                        onFileDelete(file.id);
-                                      }}
-                                      className="h-8 w-8 hover:bg-[#9D4EDD]/20"
-                                    >
-                                      <X className="h-4 w-4 text-[#9D4EDD]" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{file.downloading ? 'Cancel download' : 'Remove file'}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            </div>
-                          </div>
-                          
-                          {/* Progress bar for downloading files */}
-                          {(file.downloading || file.connecting) && (
-                            <div className="mt-2 space-y-2">
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-[#9D4EDD]">
-                                  {file.connecting ? "Connecting to file..." : "Downloading"}
-                                </span>
-                                <span className="text-[#9D4EDD]">
-                                  {file.connecting ? (
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-3 h-3 border-2 border-[#9D4EDD] border-t-transparent rounded-full animate-spin" />
-                                    </div>
-                                  ) : (
-                                    `${normalizeProgress(file?.progress)}%`
-                                  )}
-                                </span>
-                              </div>
-                              {!file.connecting && (
-                                <>
-                                  <Progress 
-                                    value={normalizeProgress(file?.progress)} 
-                                    className="h-2"
-                                    indicatorClassName="bg-[#9D4EDD]"
-                                  />
-                                  {/* Download stats */}
-                                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
-                                    <div className="flex items-center gap-2">
-                                      <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        className="text-[#9D4EDD]"
-                                      >
-                                        <path
-                                          d="M2 12L12 22L22 12"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                        />
-                                        <path
-                                          d="M12 2L12 22"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                        />
-                                      </svg>
-                                      <span>
-                                        {file.downloadSpeed ? 
-                                          `${(file.downloadSpeed / (1024 * 1024)).toFixed(2)} MB/s` : 
-                                          'Connecting...'}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 justify-end">
-                                      <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        className="text-[#9D4EDD]"
-                                      >
-                                        <circle
-                                          cx="12"
-                                          cy="12"
-                                          r="10"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                        />
-                                        <path
-                                          d="M12 6L12 12L16 14"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                        />
-                                      </svg>
-                                      <span>
-                                        {file.downloadSpeed && file.size ? 
-                                          `${formatETA(file.size * (1 - (file.progress ?? 0) / 100) / file.downloadSpeed)}` :
-                                          'Calculating...'}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2 col-span-2">
-                                      <svg
-                                        width="12"
-                                        height="12"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        className="text-[#9D4EDD]"
-                                      >
-                                        <rect
-                                          x="4"
-                                          y="4"
-                                          width="16"
-                                          height="16"
-                                          rx="2"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                        />
-                                        <path
-                                          d="M16 4V20"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                        />
-                                      </svg>
-                                      <span>
-                                        {formatDownloadProgress(file.downloadedSize, file.size)}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
+              <FileList 
+                files={sharedFiles}
+                onPreviewFile={onPreviewFile}
+                onFileDelete={onFileDelete}
+                onCopyMagnetLink={onCopyMagnetLink}
+              />
             </div>
           </CardContent>
         </Card>
@@ -1085,41 +600,5 @@ export default function MainScreen({
   };
 
   return renderContent();
-}
-
-// Add these utility functions at the top of the file, after imports
-function formatETA(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return 'Calculating...';
-  if (seconds === 0) return 'Complete';
-  
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  } else if (minutes > 0) {
-    return `${minutes}m ${secs}s`;
-  } else {
-    return `${secs}s`;
-  }
-}
-
-function formatSize(bytes: number): string {
-  if (!bytes) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-function formatDownloadProgress(downloaded?: number, total?: number): string {
-  if (!downloaded || !total) return 'Waiting for data...';
-  return `${formatSize(downloaded)} of ${formatSize(total)}`;
-}
-
-// Helper function to ensure progress is limited to 100%
-function normalizeProgress(progress: number | undefined): number {
-  if (!progress) return 0;
-  return Math.min(Math.round(progress), 100);
-}
+})
 

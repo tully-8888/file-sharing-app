@@ -46,10 +46,11 @@ export function useFilePreview() {
   
   // Cleanup preview torrents on unmount
   useEffect(() => {
+    const manager = previewManagerRef.current; // Capture the current value
     return () => {
-      previewManagerRef.current.cleanupAllPreviewTorrents();
+      manager.cleanupAllPreviewTorrents();
     };
-  }, []);
+  }, []); // Keep empty deps: We only want this cleanup to run on unmount
   
   // Update a file's preview information
   const updateFilePreview = useCallback((updatedFile: PreviewFile) => {

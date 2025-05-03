@@ -1,8 +1,10 @@
 import { Suspense } from "react"
 import FileSharing from "@/components/file-sharing"
 import Loading from "@/components/loading"
+import { memo } from "@/lib/performance"
 
-export default function Home() {
+// Memoize the Home component to prevent unnecessary re-renders
+const Home = memo(function Home() {
   return (
     <main className="container max-w-7xl py-6">
       <div className="text-center mb-10 space-y-2">
@@ -19,4 +21,6 @@ export default function Home() {
       </Suspense>
     </main>
   )
-}
+})
+
+export default Home;
