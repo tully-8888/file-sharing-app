@@ -256,7 +256,7 @@ export function useLANDiscovery(): LANDiscoveryReturn {
       if (wsRef.current?.readyState !== WebSocket.OPEN) {
         toast({
           title: "Connection Failed",
-          description: `Could not connect to server at ${wsUrl}. Check if server is running.`,
+          description: `Could not connect to the server. Please check your connection and try again.`,
           variant: "destructive",
         });
       }
@@ -274,7 +274,7 @@ export function useLANDiscovery(): LANDiscoveryReturn {
       clearTimeout(connectionTimeout);
       toast({
         title: "Connected to Server",
-        description: `Successfully connected to ${wsUrl}`,
+        description: `Successfully connected to the server`,
       });
       
       wsRef.current?.send(JSON.stringify({
@@ -331,7 +331,7 @@ export function useLANDiscovery(): LANDiscoveryReturn {
     wsRef.current.onerror = () => {
       toast({
         title: "Connection Error",
-        description: `Error connecting to server at ${wsUrl}`,
+        description: `Error connecting to the server`,
         variant: "destructive",
       });
     };
