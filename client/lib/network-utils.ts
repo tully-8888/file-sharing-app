@@ -1,3 +1,11 @@
+const HOSTED_FALLBACK_DOMAIN = 'file-sharing-app-23eq.onrender.com';
+const HOSTED_FRONTEND_HOSTS = ['netlify.app', 'render.com', 'onrender.com', 'vercel.app'];
+
+const isHostedFrontend = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return HOSTED_FRONTEND_HOSTS.some(domain => window.location.hostname.includes(domain));
+};
+
 /**
  * Gets WebSocket URL for LAN server based on environment variables or current host
  * @returns {string} WebSocket URL for LAN server
@@ -8,18 +16,31 @@ export function getWebSocketUrl(): string {
   
   // If deployed server URL is provided, use that
   if (serverUrl) {
-    // Determine protocol (wss for https, ws for http)
-    const protocol = serverUrl.startsWith('https://') ? 'wss://' : 'ws://';
-    const domain = serverUrl.replace(/^https?:\/\//, '');
-    
-    // Don't append port if it's a secure production environment
-    if (protocol === 'wss://') {
-      return `${protocol}${domain}`;
+    try {
+      const parsed = new URL(serverUrl);
+      const isSecure = parsed.protocol === 'https:' || parsed.protocol === 'wss:';
+      const protocol = isSecure ? 'wss://' : 'ws://';
+      const hostWithPort = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname;
+
+      // If the provided URL is non-secure and lacks an explicit port, append LAN port env for dev.
+      if (!isSecure && !parsed.port) {
+        const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
+        return `${protocol}${hostWithPort}:${port}`;
+      }
+
+      return `${protocol}${hostWithPort}`;
+    } catch {
+      // Fall back to previous behaviour if parsing fails
+      const protocol = serverUrl.startsWith('https://') ? 'wss://' : 'ws://';
+      const domain = serverUrl.replace(/^https?:\/\//, '');
+      const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
+      return protocol === 'wss://' ? `${protocol}${domain}` : `${protocol}${domain}:${port}`;
     }
-    
-    // For local non-secure environment, include the port
-    const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
-    return `${protocol}${domain}:${port}`;
+  }
+
+  // Hosted static frontends (Netlify/Render/Vercel) should default to the Render backend
+  if (isHostedFrontend()) {
+    return `wss://${HOSTED_FALLBACK_DOMAIN}`;
   }
   
   // For local development
@@ -53,6 +74,10 @@ export function getServerHttpUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SERVER_URL;
   if (configured) {
     return configured.replace(/\/$/, '');
+  }
+
+  if (isHostedFrontend()) {
+    return `https://${HOSTED_FALLBACK_DOMAIN}`;
   }
 
   const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';

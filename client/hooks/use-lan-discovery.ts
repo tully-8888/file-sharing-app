@@ -235,13 +235,8 @@ export function useLANDiscovery(): LANDiscoveryReturn {
     // Don't restrict connection in production anymore to support render.com
     if (typeof window === 'undefined') return;
     
-    // Get the correct WebSocket URL
-    const wsUrl = typeof window !== 'undefined' && 
-      (window.location.hostname.includes('netlify.app') || 
-       window.location.hostname.includes('render.com') ||
-       window.location.hostname.includes('vercel.app'))
-      ? 'wss://file-sharing-app-23eq.onrender.com'
-      : getWebSocketUrl();
+    // Get the correct WebSocket URL (env override → hosted fallback → local)
+    const wsUrl = getWebSocketUrl();
 
     // Log the WebSocket URL for debugging
     console.log(`[LANDiscovery] Connecting to WebSocket server at: ${wsUrl}`);
