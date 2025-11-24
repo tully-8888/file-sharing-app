@@ -90,21 +90,21 @@ export function getServerHttpUrl(): string {
     return `https://${HOSTED_FALLBACK_DOMAIN}`;
   }
 
-  const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
-
   if (typeof window !== 'undefined') {
     const loc = new URL(window.location.href);
     const isSecure = loc.protocol === 'https:';
-    const hostWithPort = loc.port ? `${loc.hostname}:${loc.port}` : loc.hostname;
+    const hostname = loc.hostname;
+    const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
 
     if (isSecure) {
+      const hostWithPort = loc.port ? `${hostname}:${loc.port}` : hostname;
       return `${loc.protocol}//${hostWithPort}`.replace(/\/$/, '');
     }
 
-    // For non-secure origins (local dev), append LAN port when missing
-    const finalPort = loc.port || port;
-    return `${loc.protocol}//${loc.hostname}:${finalPort}`.replace(/\/$/, '');
+    // For non-secure origins (local dev), always talk to the LAN server port
+    return `${loc.protocol}//${hostname}:${port}`.replace(/\/$/, '');
   }
 
+  const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
   return `http://localhost:${port}`;
 }

@@ -15,6 +15,7 @@ export interface SharedBlobRecord {
   hash: string;
   name: string;
   size: number;
+  compressedSize?: number;
   mimeType: string;
   owner?: string;
   createdAt: string;
@@ -97,6 +98,7 @@ export async function shareFileFromPath(options: {
     hash: addResult.hash,
     name: originalName,
     size: originalSize ?? stats.size,
+    compressedSize: stats.size,
     mimeType,
     owner,
     createdAt: new Date().toISOString(),
@@ -128,6 +130,7 @@ export async function shareTextContent(options: {
     hash: outcome.hash,
     name: 'shared-text.txt',
     size: Number(outcome.size),
+    compressedSize: buffer.byteLength,
     mimeType: 'text/plain',
     owner: options.owner,
     createdAt: new Date().toISOString(),
@@ -156,6 +159,7 @@ export async function inspectTicket(ticketValue: string): Promise<SharedBlobReco
     hash: ticket.hash,
     name: `${ticket.hash}.bin`,
     size: Number(sizeBigInt),
+    compressedSize: Number(sizeBigInt),
     mimeType: 'application/octet-stream',
     createdAt: new Date().toISOString(),
     ticket: ticket.toString()
@@ -177,19 +181,23 @@ export async function downloadBlob(ticketValue: string) {
   };
 }
 
-export async function getBlobStream(ticketValue: string, chunkSize = 256 * 1024) {
+export async function getBlobStream(ticketValue: string, chunkSize = 256 * 1024, range?: { start: number; end: number }) {
   const ticket = BlobTicket.fromString(ticketValue.trim());
   const node = await ensureBlobAvailable(ticket);
   const metadata = sharedBlobs.get(ticket.hash);
   const sizeBigInt = await node.blobs.size(ticket.hash);
   const size = Number(sizeBigInt);
+  const startOffset = range ? Math.max(0, Math.min(range.start, size - 1)) : 0;
+  const endOffset = range ? Math.min(range.end, size - 1) : size - 1;
+  const startBigInt = BigInt(startOffset);
+  const endBigInt = BigInt(endOffset);
 
   async function* chunkIterator() {
-    let offset = 0n;
+    let offset = startBigInt;
     const maxChunk = BigInt(chunkSize);
 
-    while (offset < sizeBigInt) {
-      const remaining = sizeBigInt - offset;
+    while (offset <= endBigInt) {
+      const remaining = endBigInt - offset + 1n;
       const len = remaining < maxChunk ? remaining : maxChunk;
       const bytes = await node.blobs.readAtToBytes(ticket.hash, offset, {
         type: ReadAtLenType.AtMost,
@@ -207,6 +215,10 @@ export async function getBlobStream(ticketValue: string, chunkSize = 256 * 1024)
     metadata,
     hash: ticket.hash,
     size,
+    range: {
+      start: startOffset,
+      end: endOffset
+    },
     chunkIterator
   };
 }

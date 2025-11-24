@@ -24,6 +24,7 @@ router.post('/iroh/share-file', upload.single('file'), handleFileShare);
 router.post('/iroh/share-text', handleTextShare);
 router.get('/iroh/inspect', handleInspectTicket);
 router.get('/iroh/download', handleDownloadTicket);
+router.head('/iroh/download', handleDownloadTicket);
 router.get('/iroh/preview', handlePreviewTicket);
 
 // Home page

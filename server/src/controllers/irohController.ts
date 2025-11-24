@@ -101,15 +101,43 @@ export async function handleDownloadTicket(req: Request, res: Response) {
   }
 
   try {
-    const { metadata, hash, size, chunkIterator } = await getBlobStream(ticket);
+    const baseStream = await getBlobStream(ticket);
+    const { metadata, hash, size } = baseStream;
     const fileName = metadata?.name || `${hash}.bin`;
     const mimeType = metadata?.mimeType || 'application/octet-stream';
+    const compressedSize = metadata?.compressedSize || size;
 
+    const rangeHeader = req.headers.range as string | undefined;
+    let start = 0;
+    let end = size - 1;
+
+    if (rangeHeader && /^bytes=\d*-\d*$/.test(rangeHeader)) {
+      const [rawStart, rawEnd] = rangeHeader.replace('bytes=', '').split('-');
+      start = rawStart ? Number(rawStart) : start;
+      end = rawEnd ? Number(rawEnd) : end;
+
+      if (Number.isNaN(start) || Number.isNaN(end) || start < 0 || end < start || start >= size) {
+        res.status(416).setHeader('Content-Range', `bytes */${size}`);
+        res.end();
+        return;
+      }
+    }
+
+    const effectiveEnd = Math.min(end, size - 1);
+    const length = effectiveEnd - start + 1;
+    const statusCode = rangeHeader ? 206 : 200;
+
+    res.status(statusCode);
+    res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', size.toString());
+    res.setHeader('Content-Length', length.toString());
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    if (rangeHeader) {
+      res.setHeader('Content-Range', `bytes ${start}-${effectiveEnd}/${size}`);
+    }
     res.setHeader('X-File-Name', encodeURIComponent(fileName));
     res.setHeader('X-File-Size', size.toString());
+    res.setHeader('X-Compressed-Size', compressedSize.toString());
     res.setHeader('X-File-Hash', hash);
     if (metadata?.compression) {
       res.setHeader('X-Compression', metadata.compression);
@@ -123,6 +151,13 @@ export async function handleDownloadTicket(req: Request, res: Response) {
     if (metadata?.originalType) {
       res.setHeader('X-Original-Type', metadata.originalType);
     }
+
+    if (req.method === 'HEAD') {
+      res.end();
+      return;
+    }
+
+    const { chunkIterator } = await getBlobStream(ticket, undefined, { start, end: effectiveEnd });
 
     for await (const chunk of chunkIterator()) {
       res.write(chunk);

@@ -44,6 +44,7 @@ interface ShareResponse {
   hash: string;
   name: string;
   size: number;
+  compressedSize?: number;
   ticket: string;
   mimeType?: string;
   owner?: string;
@@ -89,6 +90,19 @@ const COMPRESSIBLE_MIME_PREFIXES = [
 
 const ALREADY_COMPRESSED_EXT = /\.(zip|gz|tgz|bz2|xz|7z|rar|mp4|mkv|webm|mov|jpg|jpeg|png|gif|bmp|pdf)$/i;
 
+const DOWNLOAD_CHUNK_SIZE = 512 * 1024; // 512KB chunks strike balance between overhead and throughput
+const MAX_PARALLEL_CHUNKS = 4;
+const MAX_CHUNK_RETRIES = 3;
+const RETRY_BASE_DELAY_MS = 400;
+
+const compressionWorthwhile = (original: number, compressed: number) => compressed < original * 0.9;
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const waitForOnline = () =>
+  typeof window === 'undefined' || navigator.onLine
+    ? Promise.resolve()
+    : new Promise<void>(resolve => window.addEventListener('online', () => resolve(), { once: true }));
+const chooseChunkSize = (bytes: number) => (bytes > 200 * 1024 * 1024 ? 1024 * 1024 : DOWNLOAD_CHUNK_SIZE);
+
 const shouldCompress = (file: File) => {
   if (ALREADY_COMPRESSED_EXT.test(file.name)) return false;
   if (file.size < 8 * 1024) return false; // avoid overhead on tiny files
@@ -111,6 +125,15 @@ async function compressFileIfUseful(file: File) {
     if (typeof CompressionStream !== 'undefined') {
       const stream = file.stream().pipeThrough(new CompressionStream('gzip'));
       const compressedBlob = await new Response(stream).blob();
+      if (!compressionWorthwhile(file.size, compressedBlob.size)) {
+        return {
+          blob: file,
+          compression: 'none' as const,
+          originalName: file.name,
+          originalSize: file.size,
+          originalType: file.type || 'application/octet-stream'
+        };
+      }
       return {
         blob: compressedBlob,
         compression: 'gzip' as const,
@@ -128,6 +151,15 @@ async function compressFileIfUseful(file: File) {
     const arrayBuffer = await file.arrayBuffer();
     const compressed = gzipSync(new Uint8Array(arrayBuffer));
     const blob = new Blob([compressed], { type: 'application/gzip' });
+    if (!compressionWorthwhile(file.size, blob.size)) {
+      return {
+        blob: file,
+        compression: 'none' as const,
+        originalName: file.name,
+        originalSize: file.size,
+        originalType: file.type || 'application/octet-stream'
+      };
+    }
     return {
       blob,
       compression: 'gzip' as const,
@@ -277,6 +309,29 @@ export function useWebTorrent(): WebTorrentHookReturn {
     []
   );
 
+  const saveBlobToDisk = useCallback(async (blob: Blob, fileName: string) => {
+    if (hasFileSystemAccess()) {
+      try {
+        const picker = await (window as any).showSaveFilePicker({ suggestedName: fileName });
+        const writable = await picker.createWritable();
+        await blob.stream().pipeTo(writable);
+        await writable.close();
+        return;
+      } catch (error) {
+        console.warn('FileSystem API save failed, falling back to link download', error);
+      }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
   const downloadTorrent = useCallback(
     async (magnetURI: string): Promise<void> => {
       if (!magnetURI) {
@@ -320,122 +375,205 @@ export function useWebTorrent(): WebTorrentHookReturn {
 
       setDownloadingFiles(prev => [placeholder, ...prev]);
 
-      const response = await fetch(buildApiUrl(API_PATHS.download, { ticket: magnetURI }));
-      if (!response.ok || !response.body) {
-        setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
-        const reason = response.status === 404
-          ? "Iroh endpoints are unavailable on this server. Set NEXT_PUBLIC_IROH_SERVER_URL to a backend with Iroh enabled."
-          : `Failed to download ticket (status ${response.status})`;
-        throw new Error(reason);
+      const downloadUrl = buildApiUrl(API_PATHS.download, { ticket: magnetURI });
+
+      const parseNumberHeader = (headers: Headers | null, key: string) => {
+        if (!headers) return undefined;
+        const value = headers.get(key);
+        const num = value ? Number(value) : NaN;
+        return Number.isFinite(num) ? num : undefined;
+      };
+
+      let head: Response | null = null;
+      try {
+        head = await fetch(downloadUrl, { method: 'HEAD' });
+      } catch (error) {
+        console.warn('HEAD download metadata failed, will fallback', error);
       }
 
-      const compression = response.headers.get('x-compression') || metadata?.compression;
+      const compressedSize = parseNumberHeader(head?.headers ?? null, 'x-compressed-size')
+        ?? parseNumberHeader(head?.headers ?? null, 'content-length')
+        ?? metadata?.compressedSize
+        ?? metadata?.size;
+      const compression = head?.headers.get('x-compression') || metadata?.compression || 'none';
       const fileName =
-        decodeHeaderFileName(response.headers.get('x-original-name')) ||
-        decodeHeaderFileName(response.headers.get('x-file-name')) ||
+        decodeHeaderFileName(head?.headers.get('x-original-name')) ||
+        decodeHeaderFileName(head?.headers.get('x-file-name')) ||
         metadata?.originalName ||
         metadata?.name ||
         'iroh-file';
-      const originalSizeHeader = Number(response.headers.get('x-original-size'));
-      const totalSize = Number(response.headers.get('content-length')) || metadata?.size || 0;
+      const originalSizeHeader = parseNumberHeader(head?.headers ?? null, 'x-original-size') || metadata?.originalSize;
+      const acceptRanges = head?.headers.get('accept-ranges') === 'bytes';
+      const contentType = head?.headers.get('content-type') || metadata?.mimeType || 'application/octet-stream';
+
       const trackProgress = (receivedBytes: number) => {
         setDownloadingFiles(prev => prev.map(file =>
           file.id === downloadId
             ? {
                 ...file,
                 connecting: false,
-                progress: totalSize ? (receivedBytes / totalSize) * 100 : file.progress,
+                progress: compressedSize ? (receivedBytes / compressedSize) * 100 : file.progress,
                 downloadedSize: receivedBytes
               }
             : file
         ));
       };
 
-      const tryStreamToFile = async () => {
-        if (!hasFileSystemAccess() || !response.body) return false;
-        if (compression === 'gzip' && typeof DecompressionStream === 'undefined') return false;
+      const attemptChunkedDownload = async (): Promise<boolean> => {
+        if (!compressedSize || !acceptRanges) return false;
 
-        try {
-          const picker = await (window as any).showSaveFilePicker({ suggestedName: fileName });
-          const writable = await picker.createWritable();
+        const chunkSize = chooseChunkSize(compressedSize);
+        const chunkCount = Math.ceil(compressedSize / chunkSize);
+        const chunks = new Array<Uint8Array>(chunkCount);
+        let downloaded = 0;
+        let nextIndex = 0;
+
+        const fetchChunk = async (index: number) => {
+          const start = index * chunkSize;
+          const end = Math.min(compressedSize - 1, start + chunkSize - 1);
+          let attempt = 0;
+
+          while (attempt < MAX_CHUNK_RETRIES) {
+            try {
+              const resp = await fetch(downloadUrl, {
+                headers: { Range: `bytes=${start}-${end}` }
+              });
+
+              if (!(resp.ok || resp.status === 206)) {
+                throw new Error(`Chunk ${index} failed with status ${resp.status}`);
+              }
+
+              const buffer = new Uint8Array(await resp.arrayBuffer());
+              chunks[index] = buffer;
+              downloaded += buffer.length;
+              trackProgress(downloaded);
+              return;
+            } catch (error) {
+              attempt += 1;
+              if (!navigator.onLine) {
+                await waitForOnline();
+              }
+              await sleep(RETRY_BASE_DELAY_MS * attempt);
+              if (attempt >= MAX_CHUNK_RETRIES) {
+                throw error;
+              }
+            }
+          }
+        };
+
+        const worker = async () => {
+          while (true) {
+            const current = nextIndex;
+            if (current >= chunkCount) return;
+            nextIndex += 1;
+            await fetchChunk(current);
+          }
+        };
+
+        const workers = Array.from({ length: Math.min(MAX_PARALLEL_CHUNKS, chunkCount) }, worker);
+        await Promise.all(workers);
+
+        const compressedBlob = new Blob(chunks, { type: contentType });
+        const finalBlob = await maybeDecompressBlob(compressedBlob, compression || undefined);
+        await saveBlobToDisk(finalBlob, fileName);
+        return true;
+      };
+
+      const fallbackStreamDownload = async () => {
+        const response = await fetch(downloadUrl);
+        if (!response.ok || !response.body) {
+          const reason = response.status === 404
+            ? "Iroh endpoints are unavailable on this server. Set NEXT_PUBLIC_IROH_SERVER_URL to a backend with Iroh enabled."
+            : `Failed to download ticket (status ${response.status})`;
+          throw new Error(reason);
+        }
+
+        const fallbackCompression = response.headers.get('x-compression') || compression;
+        const total = Number(response.headers.get('content-length')) || compressedSize || 0;
+
+        const tryStreamToFile = async () => {
+          if (!hasFileSystemAccess() || !response.body) return false;
+          if (fallbackCompression === 'gzip' && typeof DecompressionStream === 'undefined') return false;
+
+          try {
+            const picker = await (window as any).showSaveFilePicker({ suggestedName: fileName });
+            const writable = await picker.createWritable();
+            let received = 0;
+
+            const progressStream = new TransformStream<Uint8Array, Uint8Array>({
+              transform(chunk, controller) {
+                received += chunk.length;
+                trackProgress(received);
+                controller.enqueue(chunk);
+              }
+            });
+
+            let stream: ReadableStream<Uint8Array> = response.body.pipeThrough(progressStream);
+
+            if (fallbackCompression === 'gzip' && typeof DecompressionStream !== 'undefined') {
+              stream = stream.pipeThrough(new DecompressionStream('gzip'));
+            }
+
+            await stream.pipeTo(writable);
+            await writable.close();
+            return true;
+          } catch (error) {
+            console.warn('Streaming download failed, falling back to buffer', error);
+            return false;
+          }
+        };
+
+        const streamed = await tryStreamToFile();
+        if (!streamed) {
+          const reader = response.body.getReader();
+          const chunks: Uint8Array[] = [];
           let received = 0;
 
-          const progressStream = new TransformStream<Uint8Array, Uint8Array>({
-            transform(chunk, controller) {
-              received += chunk.length;
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (value) {
+              chunks.push(value);
+              received += value.length;
               trackProgress(received);
-              controller.enqueue(chunk);
             }
-          });
-
-          let stream: ReadableStream<Uint8Array> = response.body.pipeThrough(progressStream);
-
-          if (compression === 'gzip' && typeof DecompressionStream !== 'undefined') {
-            stream = stream.pipeThrough(new DecompressionStream('gzip'));
           }
 
-          await stream.pipeTo(writable);
-          await writable.close();
-          return true;
-        } catch (error) {
-          console.warn('Streaming download failed, falling back to buffer', error);
-          return false;
+          const compressedBlob = new Blob(chunks, { type: response.headers.get('content-type') || contentType });
+          const finalBlob = await maybeDecompressBlob(compressedBlob, fallbackCompression || undefined);
+          await saveBlobToDisk(finalBlob, fileName);
         }
       };
 
-      const streamed = await tryStreamToFile();
-      if (!streamed) {
-        const reader = response.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let received = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (value) {
-            chunks.push(value);
-            received += value.length;
-            trackProgress(received);
-          }
+      try {
+        const usedChunked = await attemptChunkedDownload();
+        if (!usedChunked) {
+          await fallbackStreamDownload();
         }
 
-        const compressedBlob = new Blob(chunks, { type: response.headers.get('content-type') || placeholder.mimeType });
-        let decompressedBlob: Blob;
-        try {
-          decompressedBlob = await maybeDecompressBlob(compressedBlob, compression || undefined);
-        } catch (error) {
-          setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
-          toast({
-            title: 'Decompression failed',
-            description: error instanceof Error ? error.message : 'Could not unpack the downloaded file',
-            variant: 'destructive'
-          });
-          return;
-        }
-        const url = URL.createObjectURL(decompressedBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        setDownloadingFiles(prev => prev.map(file =>
+          file.id === downloadId
+            ? {
+                ...file,
+                downloading: false,
+                connecting: false,
+                progress: 100,
+                downloadedSize: originalSizeHeader || compressedSize || file.downloadedSize || file.size || 0,
+                compression: compression === 'gzip' ? 'gzip' : 'none'
+              }
+            : file
+        ));
+      } catch (error) {
+        console.error('[Iroh] Download failed', error);
+        setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
+        toast({
+          title: 'Download failed',
+          description: error instanceof Error ? error.message : 'Could not complete the download',
+          variant: 'destructive'
+        });
       }
-
-      setDownloadingFiles(prev => prev.map(file =>
-        file.id === downloadId
-          ? {
-              ...file,
-              downloading: false,
-              connecting: false,
-              progress: 100,
-              downloadedSize: originalSizeHeader || totalSize || file.downloadedSize || file.size || 0,
-              compression: compression === 'gzip' ? 'gzip' : 'none'
-            }
-          : file
-      ));
     },
-    [toast]
+    [toast, saveBlobToDisk]
   );
 
   const destroyClient = useCallback(() => {
