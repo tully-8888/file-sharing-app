@@ -69,8 +69,8 @@ export function getWebSocketUrl(): string {
 
 /**
  * Determine the HTTP base URL for talking to the LAN/Iroh server.
- * Prefers explicit env overrides. For hosted frontends, we avoid falling back
- * to the Render WS host for HTTP because that deployment doesn't expose Iroh endpoints.
+ * Prefers explicit env overrides. Hosted static frontends default to the
+ * Render backend because the static host has no Iroh HTTP endpoints.
  */
 export function getServerHttpUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_IROH_SERVER_URL || process.env.NEXT_PUBLIC_SERVER_URL;
@@ -83,6 +83,11 @@ export function getServerHttpUrl(): string {
     } catch {
       return explicit.replace(/\/$/, '');
     }
+  }
+
+  // Hosted static frontends (Netlify/Render/Vercel) have no local server; default to the Render backend
+  if (isHostedFrontend()) {
+    return `https://${HOSTED_FALLBACK_DOMAIN}`;
   }
 
   const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
