@@ -177,6 +177,40 @@ export async function downloadBlob(ticketValue: string) {
   };
 }
 
+export async function getBlobStream(ticketValue: string, chunkSize = 256 * 1024) {
+  const ticket = BlobTicket.fromString(ticketValue.trim());
+  const node = await ensureBlobAvailable(ticket);
+  const metadata = sharedBlobs.get(ticket.hash);
+  const sizeBigInt = await node.blobs.size(ticket.hash);
+  const size = Number(sizeBigInt);
+
+  async function* chunkIterator() {
+    let offset = 0n;
+    const maxChunk = BigInt(chunkSize);
+
+    while (offset < sizeBigInt) {
+      const remaining = sizeBigInt - offset;
+      const len = remaining < maxChunk ? remaining : maxChunk;
+      const bytes = await node.blobs.readAtToBytes(ticket.hash, offset, {
+        type: ReadAtLenType.AtMost,
+        size: len
+      });
+
+      if (!bytes.length) break;
+
+      offset += BigInt(bytes.length);
+      yield Buffer.from(bytes);
+    }
+  }
+
+  return {
+    metadata,
+    hash: ticket.hash,
+    size,
+    chunkIterator
+  };
+}
+
 export async function getPreviewChunk(ticketValue: string, byteLength: number) {
   const ticket = BlobTicket.fromString(ticketValue.trim());
   const node = await ensureBlobAvailable(ticket);

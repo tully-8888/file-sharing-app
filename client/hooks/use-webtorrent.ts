@@ -174,6 +174,9 @@ async function maybeDecompressBlob(blob: Blob, compression?: string): Promise<Bl
   return blob;
 }
 
+const hasFileSystemAccess = () =>
+  typeof window !== 'undefined' && 'showSaveFilePicker' in window && 'WritableStream' in window;
+
 export function useWebTorrent(): WebTorrentHookReturn {
   const [isClientReady, setIsClientReady] = useState(false);
   const [sharedFiles, setSharedFiles] = useState<TorrentFile[]>([]);
@@ -335,51 +338,89 @@ export function useWebTorrent(): WebTorrentHookReturn {
         'iroh-file';
       const originalSizeHeader = Number(response.headers.get('x-original-size'));
       const totalSize = Number(response.headers.get('content-length')) || metadata?.size || 0;
-      const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
-      let received = 0;
+      const trackProgress = (receivedBytes: number) => {
+        setDownloadingFiles(prev => prev.map(file =>
+          file.id === downloadId
+            ? {
+                ...file,
+                connecting: false,
+                progress: totalSize ? (receivedBytes / totalSize) * 100 : file.progress,
+                downloadedSize: receivedBytes
+              }
+            : file
+        ));
+      };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (value) {
-          chunks.push(value);
-          received += value.length;
-          setDownloadingFiles(prev => prev.map(file =>
-            file.id === downloadId
-              ? {
-                  ...file,
-                  connecting: false,
-                  progress: totalSize ? (received / totalSize) * 100 : file.progress,
-                  downloadedSize: received,
-                  downloadSpeed: value.length
-                }
-              : file
-          ));
+      const tryStreamToFile = async () => {
+        if (!hasFileSystemAccess() || !response.body) return false;
+        if (compression === 'gzip' && typeof DecompressionStream === 'undefined') return false;
+
+        try {
+          const picker = await (window as any).showSaveFilePicker({ suggestedName: fileName });
+          const writable = await picker.createWritable();
+          let received = 0;
+
+          const progressStream = new TransformStream<Uint8Array, Uint8Array>({
+            transform(chunk, controller) {
+              received += chunk.length;
+              trackProgress(received);
+              controller.enqueue(chunk);
+            }
+          });
+
+          let stream: ReadableStream<Uint8Array> = response.body.pipeThrough(progressStream);
+
+          if (compression === 'gzip' && typeof DecompressionStream !== 'undefined') {
+            stream = stream.pipeThrough(new DecompressionStream('gzip'));
+          }
+
+          await stream.pipeTo(writable);
+          await writable.close();
+          return true;
+        } catch (error) {
+          console.warn('Streaming download failed, falling back to buffer', error);
+          return false;
         }
-      }
+      };
 
-      const compressedBlob = new Blob(chunks, { type: response.headers.get('content-type') || placeholder.mimeType });
-      let decompressedBlob: Blob;
-      try {
-        decompressedBlob = await maybeDecompressBlob(compressedBlob, compression || undefined);
-      } catch (error) {
-        setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
-        toast({
-          title: 'Decompression failed',
-          description: error instanceof Error ? error.message : 'Could not unpack the downloaded file',
-          variant: 'destructive'
-        });
-        return;
+      const streamed = await tryStreamToFile();
+      if (!streamed) {
+        const reader = response.body.getReader();
+        const chunks: Uint8Array[] = [];
+        let received = 0;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value) {
+            chunks.push(value);
+            received += value.length;
+            trackProgress(received);
+          }
+        }
+
+        const compressedBlob = new Blob(chunks, { type: response.headers.get('content-type') || placeholder.mimeType });
+        let decompressedBlob: Blob;
+        try {
+          decompressedBlob = await maybeDecompressBlob(compressedBlob, compression || undefined);
+        } catch (error) {
+          setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
+          toast({
+            title: 'Decompression failed',
+            description: error instanceof Error ? error.message : 'Could not unpack the downloaded file',
+            variant: 'destructive'
+          });
+          return;
+        }
+        const url = URL.createObjectURL(decompressedBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       }
-      const url = URL.createObjectURL(decompressedBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
 
       setDownloadingFiles(prev => prev.map(file =>
         file.id === downloadId
@@ -388,7 +429,7 @@ export function useWebTorrent(): WebTorrentHookReturn {
               downloading: false,
               connecting: false,
               progress: 100,
-              downloadedSize: originalSizeHeader || received,
+              downloadedSize: originalSizeHeader || totalSize || file.downloadedSize || file.size || 0,
               compression: compression === 'gzip' ? 'gzip' : 'none'
             }
           : file

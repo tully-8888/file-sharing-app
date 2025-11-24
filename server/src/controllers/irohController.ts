@@ -5,7 +5,7 @@ import { promises as fsPromises } from 'fs';
 import { Request, Response } from 'express';
 import multer from 'multer';
 import {
-  downloadBlob,
+  getBlobStream,
   getPreviewChunk,
   inspectTicket,
   shareFileFromPath,
@@ -101,15 +101,15 @@ export async function handleDownloadTicket(req: Request, res: Response) {
   }
 
   try {
-    const { buffer, metadata, hash } = await downloadBlob(ticket);
+    const { metadata, hash, size, chunkIterator } = await getBlobStream(ticket);
     const fileName = metadata?.name || `${hash}.bin`;
     const mimeType = metadata?.mimeType || 'application/octet-stream';
 
     res.setHeader('Content-Type', mimeType);
-    res.setHeader('Content-Length', buffer.length.toString());
+    res.setHeader('Content-Length', size.toString());
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
     res.setHeader('X-File-Name', encodeURIComponent(fileName));
-    res.setHeader('X-File-Size', (metadata?.size ?? buffer.length).toString());
+    res.setHeader('X-File-Size', size.toString());
     res.setHeader('X-File-Hash', hash);
     if (metadata?.compression) {
       res.setHeader('X-Compression', metadata.compression);
@@ -124,7 +124,11 @@ export async function handleDownloadTicket(req: Request, res: Response) {
       res.setHeader('X-Original-Type', metadata.originalType);
     }
 
-    res.send(buffer);
+    for await (const chunk of chunkIterator()) {
+      res.write(chunk);
+    }
+
+    res.end();
   } catch (error) {
     console.error('[iroh] Download failed:', error);
     res.status(400).json({ error: 'Failed to download ticket data' });
