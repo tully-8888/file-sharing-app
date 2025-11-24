@@ -93,7 +93,10 @@ export function useWebTorrent(): WebTorrentHookReturn {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to share file via Iroh");
+        const reason = response.status === 404
+          ? "Iroh endpoints are unavailable on this server. Set NEXT_PUBLIC_IROH_SERVER_URL to a backend with Iroh enabled."
+          : `Failed to share file via Iroh (status ${response.status})`;
+        throw new Error(reason);
       }
 
       const data = (await response.json()) as ShareResponse;
@@ -126,7 +129,10 @@ export function useWebTorrent(): WebTorrentHookReturn {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to share text via Iroh");
+        const reason = response.status === 404
+          ? "Iroh endpoints are unavailable on this server. Set NEXT_PUBLIC_IROH_SERVER_URL to a backend with Iroh enabled."
+          : `Failed to share text via Iroh (status ${response.status})`;
+        throw new Error(reason);
       }
 
       const data = (await response.json()) as ShareResponse;
@@ -191,7 +197,10 @@ export function useWebTorrent(): WebTorrentHookReturn {
       const response = await fetch(buildApiUrl(API_PATHS.download, { ticket: magnetURI }));
       if (!response.ok || !response.body) {
         setDownloadingFiles(prev => prev.filter(file => file.id !== downloadId));
-        throw new Error("Failed to download ticket");
+        const reason = response.status === 404
+          ? "Iroh endpoints are unavailable on this server. Set NEXT_PUBLIC_IROH_SERVER_URL to a backend with Iroh enabled."
+          : `Failed to download ticket (status ${response.status})`;
+        throw new Error(reason);
       }
 
       const fileName = decodeHeaderFileName(response.headers.get('x-file-name')) || metadata?.name || 'iroh-file';

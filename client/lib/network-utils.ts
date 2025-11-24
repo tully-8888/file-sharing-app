@@ -69,27 +69,36 @@ export function getWebSocketUrl(): string {
 
 /**
  * Determine the HTTP base URL for talking to the LAN/Iroh server.
+ * Prefers explicit env overrides. For hosted frontends, we avoid falling back
+ * to the Render WS host for HTTP because that deployment doesn't expose Iroh endpoints.
  */
 export function getServerHttpUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_SERVER_URL;
-  if (configured) {
-    return configured.replace(/\/$/, '');
-  }
-
-  if (isHostedFrontend()) {
-    return `https://${HOSTED_FALLBACK_DOMAIN}`;
+  const explicit = process.env.NEXT_PUBLIC_IROH_SERVER_URL || process.env.NEXT_PUBLIC_SERVER_URL;
+  if (explicit) {
+    try {
+      const parsed = new URL(explicit);
+      const protocol = parsed.protocol === 'https:' ? 'https://' : 'http://';
+      const hostWithPort = parsed.port ? `${parsed.hostname}:${parsed.port}` : parsed.hostname;
+      return `${protocol}${hostWithPort}`.replace(/\/$/, '');
+    } catch {
+      return explicit.replace(/\/$/, '');
+    }
   }
 
   const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
 
   if (typeof window !== 'undefined') {
-    const isSecure = window.location.protocol === 'https:';
-    const protocol = isSecure ? 'https://' : 'http://';
-    const hostname = window.location.hostname;
+    const loc = new URL(window.location.href);
+    const isSecure = loc.protocol === 'https:';
+    const hostWithPort = loc.port ? `${loc.hostname}:${loc.port}` : loc.hostname;
+
     if (isSecure) {
-      return `${protocol}${hostname}`;
+      return `${loc.protocol}//${hostWithPort}`.replace(/\/$/, '');
     }
-    return `${protocol}${hostname}:${port}`;
+
+    // For non-secure origins (local dev), append LAN port when missing
+    const finalPort = loc.port || port;
+    return `${loc.protocol}//${loc.hostname}:${finalPort}`.replace(/\/$/, '');
   }
 
   return `http://localhost:${port}`;
