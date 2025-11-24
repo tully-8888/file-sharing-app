@@ -8,7 +8,7 @@ const Home = memo(function Home() {
   return (
     <main className="container max-w-7xl py-6">
       <div className="text-center mb-10 space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-[#9D4EDD] to-[#7B2CBF] text-transparent bg-clip-text">
+        <h1 className="text-4xl font-bold gradient-text">
           File Share
         </h1>
         <p className="text-lg text-muted-foreground max-w-md mx-auto">

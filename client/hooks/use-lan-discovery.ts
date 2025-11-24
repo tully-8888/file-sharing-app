@@ -67,7 +67,7 @@ export function useLANDiscovery(): LANDiscoveryReturn {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [currentUser] = useState<LANUser>(() => {
     // Generate a random avatar color
-    const colors = ["#9D4EDD", "#7B2CBF", "#5A189A", "#3C096C", "#FF5E78", "#FF9E7A", "#38B6FF", "#5CE1E6"];
+    const colors = ["#52525b", "#475569", "#57534e", "#0284c7", "#059669", "#e11d48", "#d97706"];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
     const randomId = nanoid();
     
@@ -298,7 +298,7 @@ export function useLANDiscovery(): LANDiscoveryReturn {
             name: `User ${p.id.substring(0, 4)}`,
             isOnline: (Date.now() - p.lastSeen) < 30000, // Consider online if seen in the last 30 seconds
             isYou: false,
-            avatar: p.avatar || "#9D4EDD" // Default color if none provided
+            avatar: p.avatar || "#52525b" // Default color if none provided
           }));
         
         setLocalUsers(transformedPeers);

@@ -95,11 +95,11 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
   
   return (
     <div
-      className="flex flex-col p-2 sm:p-3 rounded-lg border border-[#9D4EDD]/30 bg-secondary/30 hover:bg-secondary/50 transition-colors"
+      className="flex flex-col p-2 sm:p-3 rounded-lg border border-border bg-secondary/30 hover:bg-secondary/50 transition-colors"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="bg-[#9D4EDD]/10 p-1.5 sm:p-2 rounded-full">
+          <div className="bg-secondary p-1.5 sm:p-2 rounded-full">
             <FileTypeIcon type={fileType} size={owner === "You" ? 4 : 5} />
           </div>
           <div className="flex flex-col">
@@ -122,9 +122,9 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                       e.stopPropagation();
                       onPreview(file);
                     }}
-                    className="h-8 w-8 hover:bg-[#9D4EDD]/20"
+                    className="h-8 w-8 hover:bg-accent"
                   >
-                    <Eye className="h-4 w-4 text-[#9D4EDD]" />
+                    <Eye className="h-4 w-4 text-primary" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -147,9 +147,9 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                       onCopyLink(magnetURI);
                     }
                   }}
-                  className="h-8 w-8 hover:bg-[#9D4EDD]/20"
+                  className="h-8 w-8 hover:bg-accent"
                 >
-                  <Copy className="h-4 w-4 text-[#9D4EDD]" />
+                  <Copy className="h-4 w-4 text-primary" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -169,9 +169,9 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                     e.stopPropagation();
                     onDelete(id);
                   }}
-                  className="h-8 w-8 hover:bg-[#9D4EDD]/20"
+                  className="h-8 w-8 hover:bg-accent"
                 >
-                  <X className="h-4 w-4 text-[#9D4EDD]" />
+                  <X className="h-4 w-4 text-primary" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -192,7 +192,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
           <Progress 
             value={normalizeProgress(progress)} 
             className="h-2"
-            indicatorClassName="bg-[#9D4EDD]"
+            indicatorClassName="bg-primary"
           />
         </div>
       )}
@@ -201,13 +201,13 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
       {(downloading || connecting) && (
         <div className="mt-2 space-y-2">
           <div className="flex justify-between text-xs mb-1">
-            <span className="text-[#9D4EDD]">
+            <span className="text-primary">
               {connecting ? "Connecting to file..." : "Downloading"}
             </span>
-            <span className="text-[#9D4EDD]">
+            <span className="text-primary">
               {connecting ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 border-2 border-[#9D4EDD] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : (
                 `${normalizeProgress(progress)}%`
@@ -219,7 +219,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
               <Progress 
                 value={normalizeProgress(progress)} 
                 className="h-2"
-                indicatorClassName="bg-[#9D4EDD]"
+                indicatorClassName="bg-primary"
               />
               {/* Download stats */}
               <div className="grid grid-cols-2 gap-2 text-xs text-gray-400">
@@ -229,7 +229,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                     height="12"
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="text-[#9D4EDD]"
+                    className="text-primary"
                   >
                     <path
                       d="M2 12L12 22L22 12"
@@ -256,7 +256,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                     height="12"
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="text-[#9D4EDD]"
+                    className="text-primary"
                   >
                     <circle
                       cx="12"
@@ -284,7 +284,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                     height="12"
                     viewBox="0 0 24 24"
                     fill="none"
-                    className="text-[#9D4EDD]"
+                    className="text-primary"
                   >
                     <rect
                       x="4"
@@ -337,10 +337,10 @@ const FileListSection = memo(({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Icon className="h-4 w-4 text-[#9D4EDD]" />
-          <h4 className="text-sm font-medium text-[#9D4EDD]">{title}</h4>
+          <Icon className="h-4 w-4 text-primary" />
+          <h4 className="text-sm font-medium text-primary">{title}</h4>
         </div>
-        <Badge variant="outline" className="border-[#9D4EDD]/30 text-[#9D4EDD] text-xs">
+        <Badge variant="outline" className="border-border text-primary text-xs">
           {files.length} files
         </Badge>
       </div>

@@ -330,7 +330,7 @@ export default function FileSharing() {
             
             {(!previewFile?.type || previewFile.type === 'other') && (
               <div className="text-center p-6 bg-secondary/20 rounded-md">
-                <FileIcon className="h-16 w-16 text-[#9D4EDD]/50 mx-auto mb-4" />
+                <FileIcon className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
                 <p>Preview not available for this file type</p>
               </div>
             )}

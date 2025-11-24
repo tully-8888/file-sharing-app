@@ -18,7 +18,7 @@ interface FileTypeIconProps {
  * Memoized to prevent re-renders when parent components change
  */
 const FileTypeIcon = ({ type, size = 5, className = "" }: FileTypeIconProps) => {
-  const iconClass = `h-${size} w-${size} ${className || "text-[#9D4EDD]"}`;
+  const iconClass = `h-${size} w-${size} ${className || "text-foreground"}`;
 
   switch (type) {
     case 'image':

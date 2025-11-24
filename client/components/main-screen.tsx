@@ -141,8 +141,8 @@ export default memo(function MainScreen({
     const isActive = buttonType === sharingType;
     return `rounded-md px-6 ${
       isActive
-        ? "bg-[#9D4EDD] text-white hover:bg-[#7B2CBF]" 
-        : "text-muted-foreground hover:bg-[#9D4EDD]/10"
+        ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+        : "text-muted-foreground hover:bg-accent"
     }`;
   };
 
@@ -152,10 +152,10 @@ export default memo(function MainScreen({
       return (
         <div className="flex flex-col gap-6 max-w-full mx-auto px-2 w-full">
           {/* Sharing Type Toggle */}
-          <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+          <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
             <CardContent className="pt-4 pb-4">
               <div className="flex justify-center">
-                <div className="inline-flex bg-background/50 border border-[#9D4EDD]/20 rounded-lg p-1">
+                <div className="inline-flex bg-background/50 border border-border rounded-lg p-1">
                   <Button
                     variant="ghost"
                     className={getSharingButtonClass("internet")}
@@ -186,10 +186,10 @@ export default memo(function MainScreen({
     return (
       <div className="flex flex-col gap-6 max-w-full mx-auto px-2 w-full">
         {/* Sharing Type Toggle */}
-        <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+        <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
           <CardContent className="pt-4 pb-4">
             <div className="flex justify-center">
-              <div className="inline-flex bg-background/50 border border-[#9D4EDD]/20 rounded-lg p-1">
+              <div className="inline-flex bg-background/50 border border-border rounded-lg p-1">
                 <Button
                   variant="ghost"
                   className={getSharingButtonClass("internet")}
@@ -211,7 +211,7 @@ export default memo(function MainScreen({
           </CardContent>
         </Card>
 
-        <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+        <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
           <CardContent className="pt-4">
             <div className="flex flex-col md:flex-row gap-6">
               {/* Unified sharing area - always visible */}
@@ -223,8 +223,8 @@ export default memo(function MainScreen({
                 <div 
                   className={`share-content-section relative border-2 border-dashed rounded-lg p-6 text-center transition-all duration-500 min-h-[200px] flex flex-col items-center justify-center ${
                     isDragging
-                      ? "border-[#9D4EDD] bg-[#9D4EDD]/10"
-                      : "border-[#9D4EDD]/30 hover:border-[#9D4EDD]/60"
+                      ? "border-primary bg-secondary"
+                      : "border-border hover:border-primary/50"
                   }`}
                   onDragOver={handleDragOver}
                   onDragEnter={handleDragEnter}
@@ -243,8 +243,8 @@ export default memo(function MainScreen({
                   {!shareMode && (
                     <div className="space-y-6">
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#9D4EDD]/20 p-4 rounded-full">
-                          <Upload className="h-8 w-8 text-[#9D4EDD]" />
+                        <div className="bg-secondary p-4 rounded-full">
+                          <Upload className="h-8 w-8 text-primary" />
                         </div>
                       </div>
                       <div>
@@ -258,7 +258,7 @@ export default memo(function MainScreen({
                             fileInputRef.current?.click();
                           }}
                           variant="outline"
-                          className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                          className="border-border hover:bg-accent"
                           disabled={!isClientReady}
                         >
                           <FileIcon className="h-4 w-4 mr-2" />
@@ -270,7 +270,7 @@ export default memo(function MainScreen({
                             setTimeout(() => textareaRef.current?.focus(), 100);
                           }}
                           variant="outline"
-                          className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                          className="border-border hover:bg-accent"
                           disabled={!isClientReady}
                         >
                           <FileText className="h-4 w-4 mr-2" />
@@ -284,15 +284,15 @@ export default memo(function MainScreen({
                   {shareMode === "file" && (
                     <div className="space-y-4 w-full max-w-md">
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#9D4EDD]/20 p-3 rounded-full">
+                        <div className="bg-secondary p-3 rounded-full">
                           {isSharing ? (
                             <div className="h-6 w-6 flex items-center justify-center">
-                              <div className="w-4 h-4 border-2 border-[#9D4EDD] border-t-transparent rounded-full animate-spin" />
+                              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                             </div>
                           ) : selectedFile ? (
-                            <Upload className="h-6 w-6 text-[#9D4EDD]" />
+                            <Upload className="h-6 w-6 text-primary" />
                           ) : (
-                            <FileIcon className="h-6 w-6 text-[#9D4EDD]" />
+                            <FileIcon className="h-6 w-6 text-primary" />
                           )}
                         </div>
                       </div>
@@ -315,13 +315,13 @@ export default memo(function MainScreen({
                           {/* Sharing Progress */}
                           <div className="w-full space-y-4">
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-[#9D4EDD]">
+                              <span className="text-primary">
                                 {sharingStage === 'preparing' && "Preparing file..."}
                                 {sharingStage === 'hashing' && "Creating secure hash..."}
                                 {sharingStage === 'metadata' && "Generating metadata..."}
                                 {sharingStage === 'ready' && "File ready!"}
                               </span>
-                              <span className="text-[#9D4EDD]">{normalizeProgress(sharingProgress)}%</span>
+                              <span className="text-primary">{normalizeProgress(sharingProgress)}%</span>
                             </div>
                             {/* Add progress bar component */}
                             <p className="text-xs text-center text-muted-foreground">
@@ -334,11 +334,11 @@ export default memo(function MainScreen({
 
                           <Button 
                             variant="outline"
-                            className="border-[#9D4EDD]/30 bg-background/50 w-full"
+                            className="border-border bg-background/50 w-full"
                             disabled
                           >
                             <div className="flex items-center gap-2">
-                              <div className="h-4 w-4 border-2 border-[#9D4EDD] border-t-transparent rounded-full animate-spin" />
+                              <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                               <span>Processing...</span>
                             </div>
                           </Button>
@@ -358,15 +358,15 @@ export default memo(function MainScreen({
                           </div>
                           
                           {/* Compression Toggle */}
-                          <div className="flex items-center gap-3 w-full max-w-md bg-background/50 rounded-xl p-4 border border-[#9D4EDD]/10">
+                          <div className="flex items-center gap-3 w-full max-w-md bg-background/50 rounded-xl p-4 border border-border">
                             <div className="flex-1 flex items-center gap-3">
-                              <div className="bg-[#9D4EDD]/5 rounded-lg p-2">
+                              <div className="bg-secondary p-2 rounded-lg">
                                 <svg
                                   width="16"
                                   height="16"
                                   viewBox="0 0 24 24"
                                   fill="none"
-                                  className="text-[#9D4EDD]"
+                                  className="text-primary"
                                 >
                                   <path
                                     d="M20 5L4 5"
@@ -400,10 +400,10 @@ export default memo(function MainScreen({
                               </div>
                             </div>
                             <div className="relative flex items-center">
-                              <div className="w-8 h-4 rounded-full bg-[#9D4EDD]/10 cursor-not-allowed">
-                                <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-[#9D4EDD]/30" />
+                              <div className="w-8 h-4 rounded-full bg-secondary cursor-not-allowed">
+                                <div className="absolute left-0.5 top-0.5 w-3 h-3 rounded-full bg-muted-foreground/30" />
                               </div>
-                              <span className="absolute -top-5 right-0 text-[10px] text-[#9D4EDD] opacity-60 font-medium tracking-wide">SOON</span>
+                              <span className="absolute -top-5 right-0 text-[10px] text-primary opacity-60 font-medium tracking-wide">SOON</span>
                             </div>
                           </div>
 
@@ -414,14 +414,14 @@ export default memo(function MainScreen({
                                 setShareMode(null);
                               }}
                               variant="outline"
-                              className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                              className="border-border hover:bg-accent"
                             >
                               <X className="h-4 w-4 mr-2" />
                               Cancel
                             </Button>
                             <Button 
                               onClick={() => onFileShare(selectedFile)} 
-                              className="bg-[#9D4EDD] hover:bg-[#7B2CBF]"
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground"
                             >
                               <Upload className="h-4 w-4 mr-2" />
                               Share Now
@@ -432,13 +432,13 @@ export default memo(function MainScreen({
                         // Show file selection UI only when no file is selected and not sharing
                         <div className="text-center space-y-4">
                           <div className="flex flex-col items-center gap-2">
-                            <h4 className="text-lg font-medium text-[#9D4EDD]">Select a File</h4>
+                            <h4 className="text-lg font-medium text-primary">Select a File</h4>
                             <p className="text-sm text-gray-400">Choose a file to share</p>
                           </div>
                           <Button
                             onClick={() => setShareMode(null)}
                             variant="outline"
-                            className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                            className="border-border hover:bg-accent"
                           >
                             <X className="h-4 w-4 mr-2" />
                             Cancel
@@ -452,8 +452,8 @@ export default memo(function MainScreen({
                   {shareMode === "text" && (
                     <div className="space-y-4 w-full max-w-md">
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#9D4EDD]/20 p-3 rounded-full">
-                          <FileText className="h-6 w-6 text-[#9D4EDD]" />
+                        <div className="bg-secondary p-3 rounded-full">
+                          <FileText className="h-6 w-6 text-primary" />
                         </div>
                       </div>
                       <Textarea
@@ -461,7 +461,7 @@ export default memo(function MainScreen({
                         placeholder="Type or paste text to share"
                         value={clipboardText}
                         onChange={(e) => setClipboardText(e.target.value)}
-                        className="min-h-[100px] bg-secondary/50 border-[#9D4EDD]/30"
+                        className="min-h-[100px] bg-secondary/50 border-border"
                         autoFocus
                       />
                       <div className="flex gap-2 justify-center">
@@ -471,7 +471,7 @@ export default memo(function MainScreen({
                             setShareMode(null);
                           }}
                           variant="outline"
-                          className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                          className="border-border hover:bg-accent"
                         >
                           <X className="h-4 w-4 mr-2" />
                           Cancel
@@ -479,7 +479,7 @@ export default memo(function MainScreen({
                         <Button
                           onClick={handleShareClipboard}
                           disabled={!clipboardText.trim()}
-                          className="bg-[#9D4EDD] hover:bg-[#7B2CBF]"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
                         >
                           <Clipboard className="h-4 w-4 mr-2" />
                           Share Text
@@ -492,8 +492,8 @@ export default memo(function MainScreen({
                   {shareMode === "link" && (
                     <div className="space-y-4 w-full max-w-md">
                       <div className="flex items-center justify-center">
-                        <div className="bg-[#9D4EDD]/20 p-3 rounded-full">
-                          <Link className="h-6 w-6 text-[#9D4EDD]" />
+                        <div className="bg-secondary p-3 rounded-full">
+                          <Link className="h-6 w-6 text-primary" />
                         </div>
                       </div>
                       
@@ -505,7 +505,7 @@ export default memo(function MainScreen({
                           <Button
                             onClick={onCopyMagnetLink}
                             variant="outline"
-                            className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                            className="border-border hover:bg-accent"
                           >
                             {isCopied ? (
                               <>
@@ -528,7 +528,7 @@ export default memo(function MainScreen({
                             setShareMode(null);
                           }}
                           variant="outline"
-                          className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                          className="border-border hover:bg-accent"
                         >
                           <X className="h-4 w-4 mr-2" />
                           Cancel
@@ -553,7 +553,7 @@ export default memo(function MainScreen({
                       }}
                       size="icon"
                       variant="ghost"
-                      className="absolute top-2 right-2 h-8 w-8 rounded-full hover:bg-[#9D4EDD]/10"
+                      className="absolute top-2 right-2 h-8 w-8 rounded-full hover:bg-accent"
                     >
                       <X className="h-4 w-4" />
                     </Button>
@@ -565,11 +565,11 @@ export default memo(function MainScreen({
         </Card>
 
         {/* Shared Files Card */}
-        <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+        <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-medium gradient-text">Available Files</h3>
-              <Badge variant="outline" className="border-[#9D4EDD]/30 text-[#9D4EDD]">
+              <Badge variant="outline" className="border-border text-primary">
                 {sharedFiles.length} {sharedFiles.length === 1 ? 'file' : 'files'} total
               </Badge>
             </div>
@@ -588,7 +588,7 @@ export default memo(function MainScreen({
         {/* Toast notification for copied links */}
         <div 
           id="toast" 
-          className="hidden fixed bottom-4 right-4 bg-[#9D4EDD] text-white px-4 py-2 rounded-md shadow-lg"
+          className="hidden fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-md shadow-lg"
         >
           Iroh ticket copied to clipboard
         </div>

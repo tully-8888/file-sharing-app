@@ -394,15 +394,15 @@ export function LANFileSharing() {
   const getFileIcon = (type: string) => {
     switch (type) {
       case 'image':
-        return <ImageIcon className="h-5 w-5 text-[#9D4EDD]" />;
+        return <ImageIcon className="h-5 w-5 text-primary" />;
       case 'video':
-        return <FileVideo className="h-5 w-5 text-[#9D4EDD]" />;
+        return <FileVideo className="h-5 w-5 text-primary" />;
       case 'audio':
-        return <FileAudio className="h-5 w-5 text-[#9D4EDD]" />;
+        return <FileAudio className="h-5 w-5 text-primary" />;
       case 'text':
-        return <FileText className="h-5 w-5 text-[#9D4EDD]" />;
+        return <FileText className="h-5 w-5 text-primary" />;
       default:
-        return <FileIcon className="h-5 w-5 text-[#9D4EDD]" />;
+        return <FileIcon className="h-5 w-5 text-primary" />;
     }
   };
   
@@ -531,7 +531,7 @@ export function LANFileSharing() {
   // Render the room controls UI
   const renderRoomControls = () => {
     return (
-      <Card className="w-full border border-[#9D4EDD]/20">
+      <Card className="w-full border border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-md gradient-text flex items-center gap-2">
             <Users size={16} />
@@ -548,7 +548,7 @@ export function LANFileSharing() {
           <div className="flex flex-col gap-4">
             {currentRoomId ? (
               <div className="flex items-center gap-2">
-                <Badge className="bg-[#9D4EDD]">{currentRoomId}</Badge>
+                <Badge className="bg-primary text-primary-foreground">{currentRoomId}</Badge>
                 <Button 
                   size="sm" 
                   onClick={() => {
@@ -629,7 +629,7 @@ export function LANFileSharing() {
       {renderRoomControls()}
       
       {/* Status Card */}
-      <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20 overflow-hidden">
+      <Card className="w-full bg-card/50 backdrop-blur-sm border-border overflow-hidden">
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -637,15 +637,15 @@ export function LANFileSharing() {
               <span className="font-medium text-sm">Local Network</span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-[#9D4EDD]/10 text-[#9D4EDD] border-[#9D4EDD]/30">
+              <Badge variant="outline" className="bg-secondary text-primary border-border">
                 <Users className="h-3 w-3 mr-1" />
                 {localUsers.length} Online
               </Badge>
-              <Badge variant="outline" className="bg-[#9D4EDD]/10 text-[#9D4EDD] border-[#9D4EDD]/30">
+              <Badge variant="outline" className="bg-secondary text-primary border-border">
                 <UploadCloud className="h-3 w-3 mr-1" />
                 {(uploadSpeed / 1024).toFixed(1)} KB/s
               </Badge>
-              <Badge variant="outline" className="bg-[#9D4EDD]/10 text-[#9D4EDD] border-[#9D4EDD]/30">
+              <Badge variant="outline" className="bg-secondary text-primary border-border">
                 <DownloadCloud className="h-3 w-3 mr-1" />
                 {(downloadSpeed / 1024).toFixed(1)} KB/s
               </Badge>
@@ -658,23 +658,23 @@ export function LANFileSharing() {
       {fileNotifications.length > 0 && (
         <div className="fixed top-4 right-4 z-50 space-y-2 max-w-[90%] sm:max-w-md">
           {fileNotifications.map(file => (
-            <div key={file.id} className="bg-black/80 backdrop-blur-md border border-[#9D4EDD]/30 rounded-lg p-3 shadow-lg flex items-center justify-between animate-in slide-in-from-right">
+            <div key={file.id} className="bg-popover/80 backdrop-blur-md border border-border rounded-lg p-3 shadow-lg flex items-center justify-between animate-in slide-in-from-right">
               <div className="flex items-center gap-2">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback style={{ backgroundColor: file.sender.avatar || '#9D4EDD' }}>
+                  <AvatarFallback style={{ backgroundColor: file.sender.avatar || 'hsl(var(--primary))' }}>
                     {file.sender.name.substring(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="text-sm font-medium text-white">{file.sender.name} shared a file</p>
-                  <p className="text-xs text-white/70 truncate max-w-full">{file.name}</p>
+                  <p className="text-sm font-medium text-foreground">{file.sender.name} shared a file</p>
+                  <p className="text-xs text-muted-foreground truncate max-w-full">{file.name}</p>
                 </div>
               </div>
               <div className="flex gap-1">
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-7 w-7 text-white/70 hover:text-white hover:bg-[#9D4EDD]/20"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                   onClick={() => downloadSharedFile(file.magnetURI)}
                 >
                   <DownloadCloud className="h-4 w-4" />
@@ -682,7 +682,7 @@ export function LANFileSharing() {
                 <Button 
                   size="icon" 
                   variant="ghost" 
-                  className="h-7 w-7 text-white/70 hover:text-white hover:bg-[#9D4EDD]/20"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-accent"
                   onClick={() => dismissNotification(file.id)}
                 >
                   <X className="h-4 w-4" />
@@ -738,7 +738,7 @@ export function LANFileSharing() {
             
             {(!previewFile?.type || previewFile.type === 'other') && (
               <div className="text-center p-6 bg-secondary/20 rounded-md">
-                <FileIcon className="h-16 w-16 text-[#9D4EDD]/50 mx-auto mb-4" />
+                <FileIcon className="h-16 w-16 text-primary/50 mx-auto mb-4" />
                 <p>Preview not available for this file type</p>
               </div>
             )}
@@ -750,10 +750,10 @@ export function LANFileSharing() {
         {/* Users and Sharing Column */}
         <div className="md:col-span-1 space-y-6">
           {/* Available Users Card */}
-          <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+          <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <Users className="h-5 w-5 text-[#9D4EDD]" />
+                <Users className="h-5 w-5 text-primary" />
                 <span className="gradient-text">Available Devices</span>
               </CardTitle>
             </CardHeader>
@@ -765,13 +765,13 @@ export function LANFileSharing() {
                       key={user.id}
                       className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all ${
                         selectedPeers.includes(user.peerId) 
-                          ? 'bg-[#9D4EDD]/20 border border-[#9D4EDD]/50' 
-                          : 'bg-secondary/30 border border-[#9D4EDD]/20 hover:bg-[#9D4EDD]/10'
+                          ? 'bg-accent border border-primary' 
+                          : 'bg-secondary/30 border border-border hover:bg-secondary'
                       }`}
                       onClick={() => togglePeerSelection(user.peerId)}
                     >
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback style={{ backgroundColor: user.avatar || '#9D4EDD' }}>
+                        <AvatarFallback style={{ backgroundColor: user.avatar || 'hsl(var(--primary))' }}>
                           {user.name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
@@ -779,7 +779,7 @@ export function LANFileSharing() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium truncate">{user.name}</span>
                           {selectedPeers.includes(user.peerId) && (
-                            <Check className="h-4 w-4 text-[#9D4EDD]" />
+                            <Check className="h-4 w-4 text-primary" />
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -791,7 +791,7 @@ export function LANFileSharing() {
                 ) : (
                   <div className="flex items-center justify-center w-full p-8 bg-secondary/10 rounded-lg">
                     <div className="text-center">
-                      <Users className="h-10 w-10 text-[#9D4EDD]/30 mx-auto mb-2" />
+                      <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">Waiting for others to join</p>
                     </div>
                   </div>
@@ -801,12 +801,12 @@ export function LANFileSharing() {
           </Card>
 
           {/* Share Tabs Card */}
-          <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
-            <div className="border-b border-[#9D4EDD]/20">
+          <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
+            <div className="border-b border-border">
               <div className="flex">
                 <button
                   onClick={() => setIsTextTabActive(false)}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${!isTextTabActive ? 'text-[#9D4EDD] border-b-2 border-[#9D4EDD]' : 'text-muted-foreground hover:text-[#9D4EDD]/70'}`}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${!isTextTabActive ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary/70'}`}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <FileIcon className="h-4 w-4" />
@@ -815,7 +815,7 @@ export function LANFileSharing() {
                 </button>
                 <button
                   onClick={() => setIsTextTabActive(true)}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${isTextTabActive ? 'text-[#9D4EDD] border-b-2 border-[#9D4EDD]' : 'text-muted-foreground hover:text-[#9D4EDD]/70'}`}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${isTextTabActive ? 'text-primary border-b-2 border-primary' : 'text-muted-foreground hover:text-primary/70'}`}
                 >
                   <div className="flex items-center justify-center gap-2">
                     <FileText className="h-4 w-4" />
@@ -830,8 +830,8 @@ export function LANFileSharing() {
                   <div
                     className={`border-2 border-dashed rounded-lg p-4 text-center transition-all ${
                       isDragging
-                        ? "border-[#9D4EDD] bg-[#9D4EDD]/10"
-                        : "border-[#9D4EDD]/30 hover:border-[#9D4EDD]/60 bg-secondary/5"
+                        ? "border-primary bg-secondary"
+                        : "border-border hover:border-primary/60 bg-secondary/5"
                     }`}
                     onDragOver={handleDragOver}
                     onDragEnter={handleDragEnter}
@@ -839,15 +839,15 @@ export function LANFileSharing() {
                     onDrop={handleDrop}
                   >
                     <div className="flex flex-col items-center justify-center py-4">
-                      <div className="bg-[#9D4EDD]/10 p-3 rounded-full mb-3">
-                        <UploadCloud className="h-6 w-6 text-[#9D4EDD]" />
+                      <div className="bg-secondary p-3 rounded-full mb-3">
+                        <UploadCloud className="h-6 w-6 text-primary" />
                       </div>
                       <p className="text-sm mb-1">Drag files here or</p>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                        className="border-border hover:bg-accent"
                       >
                         Browse Files
                       </Button>
@@ -866,7 +866,7 @@ export function LANFileSharing() {
                       <div className="space-y-2 mb-3">
                         {Array.from(selectedFiles).slice(0, 3).map((file, index) => (
                           <div key={index} className="flex items-center gap-2 p-2 bg-secondary/20 rounded-md">
-                            <div className="bg-[#9D4EDD]/10 p-1.5 rounded-full">
+                            <div className="bg-secondary p-1.5 rounded-full">
                               {getFileIcon(getFileType(file.name))}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -887,7 +887,7 @@ export function LANFileSharing() {
                       <Button 
                         onClick={shareFiles} 
                         disabled={selectedPeers.length === 0 || isSharing || !isClientReady}
-                        className="w-full bg-[#9D4EDD] hover:bg-[#7B2CBF]"
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {isSharing ? (
                           <div className="flex items-center gap-2">
@@ -913,7 +913,7 @@ export function LANFileSharing() {
                       value={clipboardText}
                       onChange={(e) => setClipboardText(e.target.value.slice(0, MAX_CLIPBOARD_TEXT_LENGTH))}
                       placeholder="Type or paste text to share with others..."
-                      className="w-full h-24 p-2 text-sm rounded-md border border-[#9D4EDD]/30 bg-background focus:border-[#9D4EDD] focus:ring-1 focus:ring-[#9D4EDD] focus:outline-none"
+                      className="w-full h-24 p-2 text-sm rounded-md border border-border bg-background focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
                     />
                     <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                       <span>{clipboardText.length}/{MAX_CLIPBOARD_TEXT_LENGTH}</span>
@@ -921,7 +921,7 @@ export function LANFileSharing() {
                         variant="outline" 
                         size="sm"
                         onClick={handleClipboardPaste}
-                        className="h-7 text-xs border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                        className="h-7 text-xs border-border hover:bg-accent"
                       >
                         Paste from Clipboard
                       </Button>
@@ -931,7 +931,7 @@ export function LANFileSharing() {
                   <Button 
                     onClick={shareClipboardText} 
                     disabled={!clipboardText.trim() || selectedPeers.length === 0 || isSharingText || !isClientReady}
-                    className="w-full bg-[#9D4EDD] hover:bg-[#7B2CBF]"
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {isSharingText ? (
                       <div className="flex items-center gap-2">
@@ -955,10 +955,10 @@ export function LANFileSharing() {
         
         {/* Files Shared With You Column */}
         <div className="md:col-span-2">
-          <Card className="w-full bg-card/50 backdrop-blur-sm border-[#9D4EDD]/20">
+          <Card className="w-full bg-card/50 backdrop-blur-sm border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-medium flex items-center gap-2">
-                <DownloadCloud className="h-5 w-5 text-[#9D4EDD]" />
+                <DownloadCloud className="h-5 w-5 text-primary" />
                 <span className="gradient-text">Files Shared with You</span>
               </CardTitle>
             </CardHeader>
@@ -987,11 +987,11 @@ export function LANFileSharing() {
                     const canShowPreview = isPreviewable && (isFullyDownloaded || hasPreview) && isSmallEnough;
                     
                     return (
-                      <div key={file.id} className="bg-secondary/30 border border-[#9D4EDD]/20 rounded-lg p-4 hover:bg-secondary/40 transition-colors">
+                      <div key={file.id} className="bg-secondary/30 border border-border rounded-lg p-4 hover:bg-secondary/40 transition-colors">
                         <div className="flex items-start">
                           <div className="flex-shrink-0 mr-4">
                             <Avatar className="h-10 w-10">
-                              <AvatarFallback style={{ backgroundColor: file.sender.avatar || '#9D4EDD' }}>
+                              <AvatarFallback style={{ backgroundColor: file.sender.avatar || 'hsl(var(--primary))' }}>
                                 {file.sender.name.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
@@ -1058,7 +1058,7 @@ export function LANFileSharing() {
                                       </pre>
                                       <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-secondary/80 to-transparent"></div>
                                     </div>
-                                    <div className="text-center text-xs text-[#9D4EDD] mt-1 opacity-70 group-hover:opacity-100">
+                                    <div className="text-center text-xs text-primary mt-1 opacity-70 group-hover:opacity-100">
                                       Click to expand
                                     </div>
                                   </div>
@@ -1070,17 +1070,17 @@ export function LANFileSharing() {
                             {isDownloading && downloadInfo && (
                               <div className="mt-3">
                                 <div className="flex justify-between text-xs mb-1">
-                                  <span className="text-[#9D4EDD]">
+                                  <span className="text-primary">
                                     Downloading
                                   </span>
-                                  <span className="text-[#9D4EDD]">
+                                  <span className="text-primary">
                                     {normalizeProgress(downloadInfo.progress)} %
                                   </span>
                                 </div>
                                 <Progress 
                                   value={normalizeProgress(downloadInfo.progress)} 
                                   className="h-2"
-                                  indicatorClassName="bg-[#9D4EDD]"
+                                  indicatorClassName="bg-primary"
                                 />
                                 <div className="flex justify-between text-xs mt-1 text-muted-foreground">
                                   <span>
@@ -1102,7 +1102,7 @@ export function LANFileSharing() {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openPreview(file)}
-                                className="bg-[#9D4EDD]/5 border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                                className="bg-secondary border-border hover:bg-accent"
                               >
                                 <Eye className="h-4 w-4 mr-2" />
                                 Preview
@@ -1115,7 +1115,7 @@ export function LANFileSharing() {
                                 variant="outline"
                                 onClick={() => previewBeforeDownload(file)}
                                 disabled={!isClientReady}
-                                className="border-[#9D4EDD]/30 hover:bg-[#9D4EDD]/10"
+                                className="border-border hover:bg-accent"
                               >
                                 <Eye className="h-4 w-4 mr-2" />
                                 Generate Preview
@@ -1127,9 +1127,9 @@ export function LANFileSharing() {
                                 size="sm"
                                 variant="outline"
                                 disabled
-                                className="border-[#9D4EDD]/30"
+                                className="border-border"
                               >
-                                <div className="w-4 h-4 border-2 border-[#9D4EDD] border-t-transparent rounded-full animate-spin mr-2" />
+                                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2" />
                                 Previewing...
                               </Button>
                             )}
@@ -1139,7 +1139,7 @@ export function LANFileSharing() {
                                 size="sm"
                                 onClick={() => downloadSharedFile(file.magnetURI)}
                                 disabled={!isClientReady}
-                                className="bg-[#9D4EDD] hover:bg-[#7B2CBF]"
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                               >
                                 <DownloadCloud className="h-4 w-4 mr-2" />
                                 Download
@@ -1153,7 +1153,7 @@ export function LANFileSharing() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 bg-secondary/10 rounded-lg">
-                  <FileText className="h-12 w-12 text-[#9D4EDD]/30 mb-4" />
+                  <FileText className="h-12 w-12 text-muted-foreground/30 mb-4" />
                   <p className="text-muted-foreground">No files have been shared with you yet</p>
                   <p className="text-xs text-muted-foreground mt-2">Files shared by others on your network will appear here</p>
                 </div>
@@ -1161,9 +1161,9 @@ export function LANFileSharing() {
             </CardContent>
             
             {downloadingFiles.length > 0 && (
-              <CardFooter className="border-t border-[#9D4EDD]/20 pt-4">
+              <CardFooter className="border-t border-border pt-4">
                 <div className="w-full">
-                  <h4 className="text-sm font-medium text-[#9D4EDD] mb-2">Active Downloads</h4>
+                  <h4 className="text-sm font-medium text-primary mb-2">Active Downloads</h4>
                   <div className="space-y-2">
                     {downloadingFiles.map(file => (
                       <div key={file.id} className="bg-secondary/20 rounded-md p-2">
@@ -1171,12 +1171,12 @@ export function LANFileSharing() {
                           <span className="truncate max-w-[70%] font-medium">
                             {file.name}
                           </span>
-                          <span className="text-[#9D4EDD]">{normalizeProgress(file.progress)}%</span>
+                          <span className="text-primary">{normalizeProgress(file.progress)}%</span>
                         </div>
                         <Progress 
                           value={normalizeProgress(file.progress)} 
                           className="h-1.5"
-                          indicatorClassName="bg-[#9D4EDD]"
+                          indicatorClassName="bg-primary"
                         />
                       </div>
                     ))}
