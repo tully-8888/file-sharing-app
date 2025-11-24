@@ -44,4 +44,28 @@ export function getWebSocketUrl(): string {
   }
   
   return baseUrl;
-} 
+}
+
+/**
+ * Determine the HTTP base URL for talking to the LAN/Iroh server.
+ */
+export function getServerHttpUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_SERVER_URL;
+  if (configured) {
+    return configured.replace(/\/$/, '');
+  }
+
+  const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
+
+  if (typeof window !== 'undefined') {
+    const isSecure = window.location.protocol === 'https:';
+    const protocol = isSecure ? 'https://' : 'http://';
+    const hostname = window.location.hostname;
+    if (isSecure) {
+      return `${protocol}${hostname}`;
+    }
+    return `${protocol}${hostname}:${port}`;
+  }
+
+  return `http://localhost:${port}`;
+}

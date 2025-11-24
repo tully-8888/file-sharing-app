@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Input } from "./ui/input";
 import Image from "next/image";
+import { generateFilePreview, MAX_PREVIEW_SIZE, getFileType } from "@/lib/preview";
 
 interface SharedFileInfo {
   id: string;
@@ -53,10 +54,6 @@ interface LanMessageEvent extends CustomEvent {
   };
 }
 
-// Maximum file size for auto preview in bytes (10MB)
-const MAX_PREVIEW_SIZE = 10 * 1024 * 1024; 
-// Size of partial download for preview (1MB)
-const PREVIEW_CHUNK_SIZE = 1 * 1024 * 1024;
 // Maximum text length for clipboard sharing
 const MAX_CLIPBOARD_TEXT_LENGTH = 10000;
 
@@ -106,9 +103,7 @@ export function LANFileSharing() {
   const [availableFiles, setAvailableFiles] = useState<SharedFileInfo[]>([]);
   const [fileNotifications, setFileNotifications] = useState<SharedFileInfo[]>([]);
   const [previewFile, setPreviewFile] = useState<SharedFileInfo | null>(null);
-  const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [previewTorrents, setPreviewTorrents] = useState<Record<string, {destroy?: () => void}>>({});
   const [isDragging, setIsDragging] = useState(false);
 
   // Log key information for debugging
@@ -130,7 +125,11 @@ export function LANFileSharing() {
       if (event.detail?.type === 'FILE_SHARE') {
         console.log("[LANFileSharing] Processing FILE_SHARE message:", event.detail.data);
         
-        const fileInfo = event.detail.data;
+        const incoming = event.detail.data;
+        const fileInfo: SharedFileInfo = {
+          ...incoming,
+          type: incoming.type || getFileType(incoming.name)
+        };
         
         // Add to available files
         setAvailableFiles(prev => {
@@ -345,7 +344,8 @@ export function LANFileSharing() {
           name: currentUser.name,
           avatar: currentUser.avatar
         },
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        type: getFileType(file.name)
       };
       
       // Share the torrent info with selected peers
@@ -393,38 +393,7 @@ export function LANFileSharing() {
   };
 
   // Function to determine file type from name
-  const getFileType = (fileName: string): string => {
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    
-    // Image formats
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension)) {
-      return 'image';
-    }
-    
-    // Video formats
-    if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(extension)) {
-      return 'video';
-    }
-    
-    // Audio formats
-    if (['mp3', 'wav', 'ogg', 'aac', 'm4a'].includes(extension)) {
-      return 'audio';
-    }
-    
-    // Text formats
-    if (['txt', 'md', 'json', 'csv', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'yaml', 'yml'].includes(extension)) {
-      return 'text';
-    }
-    
-    // PDF
-    if (extension === 'pdf') {
-      return 'pdf';
-    }
-    
-    // Other formats
-    return 'other';
-  };
-
+  
   // Function to get file icon based on type
   const getFileIcon = (type: string) => {
     switch (type) {
@@ -441,54 +410,9 @@ export function LANFileSharing() {
     }
   };
   
-  // Helper to get MIME type from filename
-  const getMimeType = (filename: string): string => {
-    const extension = filename.split('.').pop()?.toLowerCase() || '';
-    
-    // Common MIME types
-    const mimeTypes: {[key: string]: string} = {
-      // Images
-      'jpg': 'image/jpeg',
-      'jpeg': 'image/jpeg',
-      'png': 'image/png',
-      'gif': 'image/gif',
-      'webp': 'image/webp',
-      'svg': 'image/svg+xml',
-      'bmp': 'image/bmp',
-      
-      // Videos
-      'mp4': 'video/mp4',
-      'webm': 'video/webm',
-      'ogg': 'video/ogg',
-      'mov': 'video/quicktime',
-      'avi': 'video/x-msvideo',
-      
-      // Audio
-      'mp3': 'audio/mpeg',
-      'wav': 'audio/wav',
-      'm4a': 'audio/mp4',
-      'aac': 'audio/aac',
-      
-      // Other
-      'pdf': 'application/pdf',
-      'txt': 'text/plain',
-      'md': 'text/markdown',
-      'json': 'application/json'
-    };
-    
-    return mimeTypes[extension] || 'application/octet-stream';
-  };
-
   // Function to preview a file before downloading
   const previewBeforeDownload = async (file: SharedFileInfo) => {
-    // Don't regenerate if already previewing or has preview
     if (file.isGeneratingPreview || file.previewUrl || file.previewContent) return;
-    
-    const fileType = getFileType(file.name);
-    // Only try to preview supported formats
-    if (!['image', 'video', 'audio', 'text', 'pdf'].includes(fileType)) return;
-    
-    // Check if file is too large for preview
     if (file.size > MAX_PREVIEW_SIZE) {
       toast({
         title: "File too large for preview",
@@ -496,355 +420,65 @@ export function LANFileSharing() {
       });
       return;
     }
-    
+
+    setAvailableFiles(prev => prev.map(f => f.id === file.id ? { ...f, isGeneratingPreview: true } : f));
+
     try {
-      // Mark file as generating preview
-      setAvailableFiles(prev => 
-        prev.map(f => {
-          if (f.id === file.id) {
-            return { ...f, isGeneratingPreview: true };
-          }
-          return f;
-        })
+      await generateFilePreview(
+        {
+          id: file.id,
+          name: file.name,
+          size: file.size,
+          magnetURI: file.magnetURI,
+          type: getFileType(file.name),
+          previewContent: file.previewContent,
+          previewUrl: file.previewUrl,
+          isGeneratingPreview: file.isGeneratingPreview
+        },
+        updated => {
+          setAvailableFiles(prev => prev.map(f => f.id === file.id ? { ...f, ...updated } : f));
+        },
+        (errorMessage) => {
+          toast({
+            title: "Preview generation failed",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
       );
-      
-      console.log(`[LANFileSharing] Generating preview for ${file.name}`);
-      
-      // Create a temporary client instance to download just enough for preview
-      const tempClient = await window.webTorrentClient?.add(file.magnetURI);
-      
-      if (!tempClient) {
-        throw new Error("Failed to create preview download");
-      }
-      
-      // Store reference to be able to destroy it later
-      setPreviewTorrents(prev => ({ ...prev, [file.id]: tempClient }));
-      
-      // Wait for metadata to be ready before accessing files
-      const waitForMetadata = () => {
-        return new Promise<void>((resolve, reject) => {
-          // Check if files already exist first
-          if (tempClient.files && tempClient.files.length > 0) {
-            resolve();
-            return;
-          }
-          
-          // Set up event listener for when torrent metadata loads
-          const onReady = () => {
-            if (tempClient.files && tempClient.files.length > 0) {
-              resolve();
-            } else {
-              reject(new Error("Torrent has no files after metadata loaded"));
-            }
-          };
-          
-          // Listen for the ready event
-          tempClient.on('ready', onReady);
-          
-          // Set a timeout in case metadata never loads
-          setTimeout(() => {
-            tempClient.removeListener('ready', onReady);
-            reject(new Error("Timed out waiting for torrent metadata"));
-          }, 15000);
-        });
-      };
-      
-      // Wait for metadata to be ready
-      await waitForMetadata();
-      
-      // Check if we have files now
-      if (!tempClient.files || tempClient.files.length === 0) {
-        throw new Error("No files found in torrent after metadata loaded");
-      }
-      
-      // Set priority on first file only
-      const torrentFile = tempClient.files[0];
-      
-      // For most file types, we just need the beginning of the file
-      if (['image', 'video', 'audio', 'pdf'].includes(fileType)) {
-        // Select just the first chunk to download
-        const previewLength = Math.min(PREVIEW_CHUNK_SIZE, file.size);
-        
-        // Create buffer for partial content
-        let partialContent: Uint8Array | null = null;
-        
-        // Create a promise to wait for enough data for preview
-        const previewPromise = new Promise<string>((resolve, reject) => {
-          let downloadedEnough = false;
-          
-          const checkDownload = () => {
-            // Only proceed if we downloaded at least 50KB or 10% of file
-            const minBytes = Math.min(50 * 1024, file.size * 0.1);
-            
-            if (tempClient.downloaded >= minBytes && !downloadedEnough) {
-              downloadedEnough = true;
-              
-              try {
-                // Get partial content as stream or buffer
-                const stream = torrentFile.createReadStream({ 
-                  start: 0,
-                  end: Math.min(previewLength - 1, torrentFile.length - 1)
-                });
-                
-                const chunks: Uint8Array[] = [];
-                
-                stream.on('data', (chunk: Uint8Array) => {
-                  chunks.push(chunk);
-                });
-                
-                stream.on('end', () => {
-                  partialContent = new Uint8Array(Buffer.concat(chunks));
-                  
-                  // Create blob URL from the partial content
-                  const blob = new Blob([partialContent], { type: getMimeType(file.name) });
-                  const url = URL.createObjectURL(blob);
-                  resolve(url);
-                });
-                
-                stream.on('error', (err: Error) => {
-                  reject(err);
-                });
-              } catch (err) {
-                reject(err);
-              }
-            }
-          };
-          
-          // Poll download progress
-          const interval = setInterval(checkDownload, 200);
-          
-          // Timeout after 15 seconds
-          const timeout = setTimeout(() => {
-            clearInterval(interval);
-            reject(new Error("Preview generation timed out"));
-          }, 15000);
-          
-          // Set up cleanup
-          tempClient.once('close', () => {
-            clearInterval(interval);
-            clearTimeout(timeout);
-            reject(new Error("Download was closed"));
-          });
-        });
-        
-        // Wait for preview to be ready
-        const previewUrl = await previewPromise;
-        
-        // Update file with preview URL
-        setAvailableFiles(prev => 
-          prev.map(f => {
-            if (f.id === file.id) {
-              return { 
-                ...f, 
-                previewUrl,
-                type: fileType,
-                isGeneratingPreview: false 
-              };
-            }
-            return f;
-          })
-        );
-      } else if (fileType === 'text') {
-        // For text files, get a small preview of the content
-        const previewPromise = new Promise<string>((resolve, reject) => {
-          let downloadedEnough = false;
-          
-          const checkDownload = () => {
-            // Only need first ~10KB for text preview
-            const minBytes = Math.min(10 * 1024, file.size);
-            
-            if (tempClient.downloaded >= minBytes && !downloadedEnough) {
-              downloadedEnough = true;
-              
-              try {
-                // Get first part of text file
-                const stream = torrentFile.createReadStream({ 
-                  start: 0,
-                  end: Math.min(minBytes - 1, torrentFile.length - 1)
-                });
-                
-                const chunks: Uint8Array[] = [];
-                
-                stream.on('data', (chunk: Uint8Array) => {
-                  chunks.push(chunk);
-                });
-                
-                stream.on('end', () => {
-                  try {
-                    const content = new TextDecoder().decode(Buffer.concat(chunks));
-                    resolve(content.slice(0, 1000)); // First 1000 chars
-                  } catch (err) {
-                    reject(err);
-                  }
-                });
-                
-                stream.on('error', (err: Error) => {
-                  reject(err);
-                });
-              } catch (err) {
-                reject(err);
-              }
-            }
-          };
-          
-          // Poll download progress
-          const interval = setInterval(checkDownload, 200);
-          
-          // Timeout after 15 seconds
-          const timeout = setTimeout(() => {
-            clearInterval(interval);
-            reject(new Error("Preview generation timed out"));
-          }, 15000);
-          
-          // Set up cleanup
-          tempClient.once('close', () => {
-            clearInterval(interval);
-            clearTimeout(timeout);
-            reject(new Error("Download was closed"));
-          });
-        });
-        
-        // Wait for preview to be ready
-        const previewContent = await previewPromise;
-        
-        // Update file with preview content
-        setAvailableFiles(prev => 
-          prev.map(f => {
-            if (f.id === file.id) {
-              return { 
-                ...f, 
-                previewContent,
-                type: fileType,
-                isGeneratingPreview: false 
-              };
-            }
-            return f;
-          })
-        );
-      }
     } catch (error) {
-      console.error(`[LANFileSharing] Error generating preview:`, error);
-      
-      // Reset generating state
-      setAvailableFiles(prev => 
-        prev.map(f => {
-          if (f.id === file.id) {
-            return { ...f, isGeneratingPreview: false };
-          }
-          return f;
-        })
-      );
-      
-      toast({
-        title: "Preview generation failed",
-        description: "Could not generate preview for this file",
-        variant: "destructive"
-      });
+      console.error("[LANFileSharing] Error generating preview:", error);
+    } finally {
+      setAvailableFiles(prev => prev.map(f => f.id === file.id ? { ...f, isGeneratingPreview: false } : f));
     }
   };
+
 
   // Function to open preview dialog
   const openPreview = (file: SharedFileInfo) => {
     setPreviewFile(file);
     setIsPreviewOpen(true);
-    
-    // For text files that have been downloaded, get the full content
-    if (file.type === 'text') {
-      const downloadedFile = downloadingFiles.find(df => df.magnetURI === file.magnetURI);
-      
-      if (downloadedFile?.torrent && downloadedFile.progress === 100) {
-        const torrentFile = downloadedFile.torrent.files[0];
-        
-        if (torrentFile) {
-          torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
-            if (err || !buffer) return;
-            
-            try {
-              const textContent = new TextDecoder().decode(buffer);
-              setPreviewContent(textContent);
-            } catch (error) {
-              console.error("Error decoding text file:", error);
-              setPreviewContent("Error loading file content");
-            }
-          });
-        }
-      }
-    }
   };
   
-  // Clean up preview torrents when component unmounts
+  // Track when downloading completes - placeholder for future enhancements
   useEffect(() => {
-    return () => {
-      // Destroy all preview torrents
-      Object.values(previewTorrents).forEach(torrent => {
-        try {
-          if (torrent && typeof torrent.destroy === 'function') {
-            torrent.destroy();
-          }
-        } catch (e) {
-          console.error("[LANFileSharing] Error destroying preview torrent:", e);
-        }
-      });
-    };
-  }, [previewTorrents]);
-
-  // Track when downloading is complete to possibly show preview
-  useEffect(() => {
-    downloadingFiles.forEach(file => {
-      // Find matching file in availableFiles
-      const availableFile = availableFiles.find(af => af.magnetURI === file.magnetURI);
-      
-      if (availableFile && file.progress === 100 && file.torrent) {
-        // File is completely downloaded, we can create preview
-        const fileType = getFileType(file.name);
-        
-        // Only create previews for supported formats and small enough files
-        if (['image', 'text', 'video', 'audio'].includes(fileType) && file.size < MAX_PREVIEW_SIZE) {
-          const torrentFile = file.torrent.files[0];
-          
-          if (torrentFile) {
-            if (fileType === 'text') {
-              // For text files, get the content
-              torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
-                if (err || !buffer) return;
-                
-                try {
-                  const textContent = new TextDecoder().decode(buffer);
-                  
-                  // For local file sharing, update the preview directly
-                  setAvailableFiles((prev: SharedFileInfo[]) => prev.map((f: SharedFileInfo) => {
-                    if (f.id === file.id) {
-                      return { ...f, previewContent: textContent };
-                    }
-                    return f;
-                  }));
-                } catch (error) {
-                  console.error("Error decoding text file:", error);
-                }
-              });
-            } else {
-              // For other file types, get blob URL
-              torrentFile.getBlobURL((err: Error | null, url?: string) => {
-                if (err || !url) return;
-                
-                // Update availableFiles with the preview URL
-                setAvailableFiles((prev: SharedFileInfo[]) => prev.map((f: SharedFileInfo) => {
-                  if (f.id === file.id) {
-                    return { ...f, previewUrl: url };
-                  }
-                  return f;
-                }));
-              });
-            }
-          }
-        }
-      }
-    });
-  }, [downloadingFiles, availableFiles]);
+    if (downloadingFiles.some(file => file.progress === 100)) {
+      console.log('[LANFileSharing] One or more downloads completed');
+    }
+  }, [downloadingFiles]);
 
   const downloadSharedFile = async (magnetURI: string) => {
     if (!magnetURI.trim()) return;
-    
+
+    if (!isClientReady) {
+      toast({
+        title: "Iroh service not ready",
+        description: "Please wait for the sharing client to initialize",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       await downloadTorrent(magnetURI);
       
@@ -863,11 +497,8 @@ export function LANFileSharing() {
     );
   };
 
-  // Calculate total upload/download speeds
-  const uploadSpeed = [...sharedFiles, ...downloadingFiles].reduce(
-    (total, file) => total + (file.torrent?.uploadSpeed || 0), 
-    0
-  );
+  // Calculate total upload/download speeds (upload speed not available in Iroh mode)
+  const uploadSpeed = 0;
   
   const downloadSpeed = downloadingFiles.reduce(
     (total, file) => total + (file.downloadSpeed || 0), 
@@ -1105,7 +736,7 @@ export function LANFileSharing() {
             
             {previewFile?.type === 'text' && (
               <pre className="bg-secondary/20 p-4 rounded-md overflow-auto max-h-[60vh] text-sm">
-                {previewContent || previewFile.previewContent || "Loading content..."}
+                {previewFile.previewContent || "Loading content..."}
               </pre>
             )}
             

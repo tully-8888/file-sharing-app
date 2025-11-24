@@ -153,7 +153,7 @@ const FileItem = memo(({ file, onPreview, onDelete, onCopyLink }: FileItemProps)
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Copy magnet link</p>
+                <p>Copy Iroh ticket</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

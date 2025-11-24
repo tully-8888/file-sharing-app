@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { TorrentFile } from "@/hooks/use-webtorrent";
-import { 
+import {
   generateFilePreview,
   getFileType,
-  createPreviewTorrentManager,
   MAX_PREVIEW_SIZE,
   type PreviewFile
 } from "@/lib/preview";
@@ -40,17 +39,6 @@ export function useFilePreview() {
   });
   const [previewableFiles, setPreviewableFiles] = useState<Record<string, PreviewFile>>({});
   const { toast } = useToast();
-  
-  // Create a preview torrent manager to handle cleanup
-  const previewManagerRef = useRef(createPreviewTorrentManager());
-  
-  // Cleanup preview torrents on unmount
-  useEffect(() => {
-    const manager = previewManagerRef.current; // Capture the current value
-    return () => {
-      manager.cleanupAllPreviewTorrents();
-    };
-  }, []); // Keep empty deps: We only want this cleanup to run on unmount
   
   // Update a file's preview information
   const updateFilePreview = useCallback((updatedFile: PreviewFile) => {

@@ -488,7 +488,7 @@ export default memo(function MainScreen({
                     </div>
                   )}
 
-                  {/* Magnet link (download) UI */}
+                  {/* Share ticket (download) UI */}
                   {shareMode === "link" && (
                     <div className="space-y-4 w-full max-w-md">
                       <div className="flex items-center justify-center">
@@ -500,7 +500,7 @@ export default memo(function MainScreen({
                       {currentMagnetLink && (
                         <div className="flex flex-col items-center">
                           <p className="text-sm text-center text-muted-foreground mb-2">
-                            Share this magnet link with others so they can download your file:
+                            Share this Iroh ticket with others so they can download your file:
                           </p>
                           <Button
                             onClick={onCopyMagnetLink}
@@ -515,7 +515,7 @@ export default memo(function MainScreen({
                             ) : (
                               <>
                                 <Copy className="h-4 w-4 mr-2" />
-                                Copy Magnet Link
+                                Copy Iroh Ticket
                               </>
                             )}
                           </Button>
@@ -590,7 +590,7 @@ export default memo(function MainScreen({
           id="toast" 
           className="hidden fixed bottom-4 right-4 bg-[#9D4EDD] text-white px-4 py-2 rounded-md shadow-lg"
         >
-          Magnet link copied to clipboard
+          Iroh ticket copied to clipboard
         </div>
         
         {/* LAN Users Panel - only show if discovery is active */}
@@ -601,4 +601,3 @@ export default memo(function MainScreen({
 
   return renderContent();
 })
-

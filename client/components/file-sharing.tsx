@@ -5,7 +5,6 @@ import { useToast } from "@/hooks/use-toast"
 import MainScreen from "./main-screen"
 import { TorrentFile } from "@/hooks/use-webtorrent"
 import { useFileSharing } from "@/contexts/file-sharing-context"
-import { getFileType } from "@/lib/preview"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FileIcon } from "lucide-react"
 import Image from 'next/image'
@@ -41,24 +40,13 @@ export default function FileSharing() {
     isPreviewOpen,
     openPreview,
     closePreview,
-    previewBeforeDownload,
-    updateFullyDownloadedPreview
+    previewBeforeDownload
   } = useFileSharing();
 
   // All files (shared + downloading) - calculated once per render
   const allFiles = [...sharedFiles, ...downloadingFiles]
 
-  // Add refs to store cleanup functions
-  const cleanupRef = useRef<(() => void)[]>([]);
-  
-  // Add cleanup handler
-  const handleCleanup = useCallback(() => {
-    // Execute all cleanup functions
-    cleanupRef.current.forEach(cleanup => cleanup());
-    // Reset cleanup array
-    cleanupRef.current = [];
-    
-    // Reset all states
+  const resetShareState = useCallback(() => {
     setSharingState({
       isSharing: false,
       progress: 0,
@@ -70,13 +58,13 @@ export default function FileSharing() {
   // Handle share cancellation
   const handleShareCancel = useCallback(() => {
     console.log('Cancelling share operation');
-    handleCleanup();
+    resetShareState();
     
     toast({
       title: "Share cancelled",
-      description: "The file sharing operation has been cancelled",
+      description: "The Iroh sharing request was cancelled",
     });
-  }, [handleCleanup, toast]);
+  }, [resetShareState, toast]);
 
   // Debug logging for state changes
   useEffect(() => {
@@ -91,41 +79,6 @@ export default function FileSharing() {
     console.log('Magnet Link Changed:', currentMagnetLink ? `New link available: ${currentMagnetLink}` : 'No link');
   }, [currentMagnetLink]);
 
-  // Track when downloading is complete to generate preview
-  useEffect(() => {
-    downloadingFiles.forEach(file => {
-      if (file.progress === 100 && file.torrent) {
-        const fileType = getFileType(file.name);
-        
-        // Only create previews for supported formats and small enough files
-        if (['image', 'text', 'video', 'audio'].includes(fileType) && file.size < 10 * 1024 * 1024) {
-          const torrentFile = file.torrent.files[0];
-          
-          if (torrentFile) {
-            if (fileType === 'text') {
-              // For text files, get the content
-              torrentFile.getBuffer((err: Error | null, buffer?: Buffer) => {
-                if (err || !buffer) return;
-                
-                try {
-                  const textContent = new TextDecoder().decode(buffer);
-                  updateFullyDownloadedPreview(file, textContent);
-                } catch (error) {
-                  console.error("Error decoding text file:", error);
-                }
-              });
-            } else {
-              // For other file types, get blob URL
-              torrentFile.getBlobURL((err: Error | null, url?: string) => {
-                if (err || !url) return;
-                updateFullyDownloadedPreview(file, undefined, url);
-              });
-            }
-          }
-        }
-      }
-    });
-  }, [downloadingFiles, updateFullyDownloadedPreview]);
 
   // Handle file deletion - memoized to maintain stable reference
   const handleFileDelete = useCallback((fileId: string) => {
@@ -140,17 +93,11 @@ export default function FileSharing() {
     }
 
     try {
-      // If file is downloading, cancel the download first
       if (downloadingFile?.downloading) {
-        file.torrent?.destroy({ destroyStore: true });
-        // Remove from downloading files
         setDownloadingFiles((prev: TorrentFile[]) => prev.filter((f: TorrentFile) => f.id !== fileId));
       }
 
-      // For shared files, just destroy the torrent
       if (sharedFile) {
-        file.torrent?.destroy();
-        // Remove from shared files
         setSharedFiles((prev: TorrentFile[]) => prev.filter((f: TorrentFile) => f.id !== fileId));
       }
 
@@ -183,161 +130,52 @@ export default function FileSharing() {
   const handleFileShare = useCallback(async (file: File) => {
     if (!isClientReady) {
       toast({
-        title: "WebTorrent not ready",
-        description: "Please wait for WebTorrent to initialize",
+        title: "Iroh service not ready",
+        description: "Please wait for the sharing client to initialize",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
+    setSharingState({
+      isSharing: true,
+      progress: 10,
+      stage: 'preparing'
+    });
+
     try {
-      console.log('Starting file share process:', {
-        fileName: file.name,
-        fileSize: file.size,
-        timestamp: new Date().toISOString()
-      });
+      const sharedFile = await createTorrent(file, "You");
 
-      // Initialize sharing state
       setSharingState({
-        isSharing: true,
-        progress: 0,
-        stage: 'preparing'
-      })
-
-      // Create a promise that resolves when the torrent is fully ready
-      const torrentPromise = new Promise<TorrentFile>((resolve, reject) => {
-        console.log('Creating torrent...');
-        
-        const startTime = Date.now();
-        let progressInterval: NodeJS.Timeout;
-        let metadataCheckInterval: NodeJS.Timeout;
-        let timeoutId: NodeJS.Timeout;
-        
-        // Store cleanup function
-        cleanupRef.current.push(() => {
-          clearInterval(progressInterval);
-          clearInterval(metadataCheckInterval);
-          clearTimeout(timeoutId);
-        });
-
-        createTorrent(file, "You")
-          .then(newFile => {
-            if (!newFile.torrent) {
-              console.error('Torrent object missing');
-              reject(new Error("Torrent creation failed"));
-              return;
-            }
-
-            // Store torrent cleanup
-            cleanupRef.current.push(() => {
-              console.log('Cleaning up torrent');
-              newFile.torrent?.destroy({ destroyStore: true });
-            });
-
-            // Rest of the existing torrent creation code...
-            const simulateProgress = () => {
-              const elapsedTime = Date.now() - startTime;
-              const baseProgress = Math.min(95, (elapsedTime / 2000) * 100);
-              
-              setSharingState(prev => ({
-                ...prev,
-                progress: Math.round(baseProgress),
-                stage: baseProgress < 40 ? 'preparing' 
-                  : baseProgress < 70 ? 'hashing'
-                  : baseProgress < 95 ? 'metadata'
-                  : 'ready'
-              }));
-
-              if (baseProgress >= 95) {
-                clearInterval(progressInterval);
-              }
-            };
-
-            progressInterval = setInterval(simulateProgress, 100);
-
-            // Handle torrent events
-            newFile.torrent.on('ready', () => {
-              console.log('Torrent ready event fired');
-              
-              if (newFile.magnetURI) {
-                console.log('Magnet link available, completing process');
-                clearInterval(progressInterval);
-                
-                setSharingState(prev => ({
-                  ...prev,
-                  stage: 'ready',
-                  progress: 100
-                }));
-                
-                setCurrentMagnetLink(newFile.magnetURI);
-                resolve(newFile);
-              } else {
-                setSharingState(prev => ({
-                  ...prev,
-                  progress: Math.max(prev.progress, 95),
-                  stage: 'metadata'
-                }));
-              }
-            });
-
-            metadataCheckInterval = setInterval(() => {
-              if (newFile.magnetURI) {
-                console.log('Magnet link detected in check interval');
-                clearInterval(metadataCheckInterval);
-                clearInterval(progressInterval);
-                
-                setSharingState(prev => ({
-                  ...prev,
-                  stage: 'ready',
-                  progress: 100
-                }));
-                
-                setCurrentMagnetLink(newFile.magnetURI);
-                resolve(newFile);
-              }
-            }, 100);
-
-            newFile.torrent.on('error', (err: Error) => {
-              console.error('Torrent error:', err);
-              handleCleanup();
-              reject(err);
-            });
-
-            timeoutId = setTimeout(() => {
-              handleCleanup();
-              reject(new Error("Timeout waiting for magnet link"));
-            }, 10000);
-          })
-          .catch(err => {
-            console.error('Error in createTorrent:', err);
-            handleCleanup();
-            reject(err);
-          });
+        isSharing: false,
+        progress: 100,
+        stage: 'ready'
       });
 
-      await torrentPromise;
-      console.log('Torrent promise resolved');
-      
+      if (sharedFile.magnetURI) {
+        setCurrentMagnetLink(sharedFile.magnetURI);
+      }
+
       toast({
         title: "File shared successfully",
-        description: `${file.name} is now available to others. Share the magnet link to allow others to download.`,
-      })
+        description: `${file.name} is now available to others. Share the Iroh ticket so they can download it.`,
+      });
     } catch (err) {
-      console.error("Error sharing file:", err)
-      handleCleanup();
+      console.error("Error sharing file:", err);
+      resetShareState();
       toast({
         title: "Error sharing file",
         description: err instanceof Error ? err.message : "Unknown error",
         variant: "destructive",
-      })
+      });
     }
-  }, [isClientReady, toast, createTorrent, handleCleanup]);
+  }, [isClientReady, toast, createTorrent, resetShareState]);
 
   const handleTextShare = useCallback(async (text: string) => {
     if (!isClientReady) {
       toast({
-        title: "WebTorrent not ready",
-        description: "Please wait for WebTorrent to initialize",
+        title: "Iroh service not ready",
+        description: "Please wait for the sharing client to initialize",
         variant: "destructive",
       })
       return
@@ -346,14 +184,14 @@ export default function FileSharing() {
     try {
       const newFile = await createTextTorrent(text, "You")
       
-      // Show and copy magnet link
+      // Show and copy ticket
       if (newFile.magnetURI) {
         setCurrentMagnetLink(newFile.magnetURI)
       }
       
       toast({
         title: "Text shared successfully",
-        description: `"${text.slice(0, 30)}${text.length > 30 ? '...' : ''}" is now available to others. Share the magnet link to allow others to download.`,
+        description: `"${text.slice(0, 30)}${text.length > 30 ? '...' : ''}" is now available to others. Share the Iroh ticket so they can download it.`,
       })
     } catch (err) {
       console.error("Error sharing text:", err)
@@ -365,13 +203,13 @@ export default function FileSharing() {
     }
   }, [isClientReady, toast, createTextTorrent]);
 
-  // Function is used internally via WebTorrent UI components
+  // Function is used internally via the Iroh UI components
   /* eslint-disable @typescript-eslint/no-unused-vars */
   const handleFileDownload = useCallback(async (magnetURI: string) => {
     if (!isClientReady) {
       toast({
-        title: "WebTorrent not ready",
-        description: "Please wait for WebTorrent to initialize",
+        title: "Iroh service not ready",
+        description: "Please wait for the sharing client to initialize",
         variant: "destructive",
       })
       return
@@ -404,14 +242,14 @@ export default function FileSharing() {
         setTimeout(() => setIsCopied(false), 2000)
         
         toast({
-          title: "Magnet link copied",
-          description: "Share this link with others to allow them to download your file",
+          title: "Iroh ticket copied",
+          description: "Share this ticket so others can download your file",
         })
       })
       .catch(err => {
         console.error("Error copying to clipboard:", err)
         toast({
-          title: "Error copying magnet link",
+          title: "Error copying ticket",
           description: "Please copy it manually",
           variant: "destructive",
         })
