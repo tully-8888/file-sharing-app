@@ -49,6 +49,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.3.0-canary.1",
     "express": "^4.21.2",
+    "fflate": "^0.8.2",
     "input-otp": "1.4.1",
     "lucide-react": "^0.454.0",
     "nanoid": "^5.1.5",

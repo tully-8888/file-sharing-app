@@ -19,6 +19,10 @@ export interface SharedBlobRecord {
   owner?: string;
   createdAt: string;
   ticket: string;
+  originalName?: string;
+  originalSize?: number;
+  originalType?: string;
+  compression?: 'gzip' | 'none';
 }
 
 const sharedBlobs = new Map<string, SharedBlobRecord>();
@@ -75,8 +79,11 @@ export async function shareFileFromPath(options: {
   originalName: string;
   mimeType: string;
   owner?: string;
+  originalSize?: number;
+  originalType?: string;
+  compression?: 'gzip' | 'none';
 }): Promise<SharedBlobRecord> {
-  const { filePath, originalName, mimeType, owner } = options;
+  const { filePath, originalName, mimeType, owner, originalSize, originalType, compression } = options;
   const stats = await fs.stat(filePath);
   const addResult = await importFileFromPath(filePath);
   const node = await getNode();
@@ -89,11 +96,15 @@ export async function shareFileFromPath(options: {
   const record: SharedBlobRecord = {
     hash: addResult.hash,
     name: originalName,
-    size: stats.size,
+    size: originalSize ?? stats.size,
     mimeType,
     owner,
     createdAt: new Date().toISOString(),
-    ticket: ticket.toString()
+    ticket: ticket.toString(),
+    originalName,
+    originalSize: originalSize ?? stats.size,
+    originalType: originalType ?? mimeType,
+    compression: compression ?? 'none'
   };
 
   sharedBlobs.set(addResult.hash, record);
@@ -120,7 +131,11 @@ export async function shareTextContent(options: {
     mimeType: 'text/plain',
     owner: options.owner,
     createdAt: new Date().toISOString(),
-    ticket: ticket.toString()
+    ticket: ticket.toString(),
+    originalName: 'shared-text.txt',
+    originalSize: buffer.byteLength,
+    originalType: 'text/plain',
+    compression: 'none'
   };
 
   sharedBlobs.set(outcome.hash, record);

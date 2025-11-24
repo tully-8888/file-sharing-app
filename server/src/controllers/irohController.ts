@@ -41,9 +41,12 @@ export async function handleFileShare(req: Request, res: Response) {
   try {
     const record = await shareFileFromPath({
       filePath: file.path,
-      originalName: file.originalname,
+      originalName: (req.body?.originalName as string) || file.originalname,
       mimeType: file.mimetype || 'application/octet-stream',
-      owner: req.body?.owner || 'Anonymous'
+      owner: req.body?.owner || 'Anonymous',
+      originalSize: req.body?.originalSize ? Number(req.body.originalSize) : file.size,
+      originalType: (req.body?.originalType as string) || file.mimetype || 'application/octet-stream',
+      compression: (req.body?.compression as 'gzip' | 'none') || 'none'
     });
 
     res.json(record);
@@ -108,6 +111,18 @@ export async function handleDownloadTicket(req: Request, res: Response) {
     res.setHeader('X-File-Name', encodeURIComponent(fileName));
     res.setHeader('X-File-Size', (metadata?.size ?? buffer.length).toString());
     res.setHeader('X-File-Hash', hash);
+    if (metadata?.compression) {
+      res.setHeader('X-Compression', metadata.compression);
+    }
+    if (metadata?.originalName) {
+      res.setHeader('X-Original-Name', encodeURIComponent(metadata.originalName));
+    }
+    if (metadata?.originalSize) {
+      res.setHeader('X-Original-Size', metadata.originalSize.toString());
+    }
+    if (metadata?.originalType) {
+      res.setHeader('X-Original-Type', metadata.originalType);
+    }
 
     res.send(buffer);
   } catch (error) {
