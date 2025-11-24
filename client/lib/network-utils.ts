@@ -92,16 +92,11 @@ export function getServerHttpUrl(): string {
 
   if (typeof window !== 'undefined') {
     const loc = new URL(window.location.href);
-    const isSecure = loc.protocol === 'https:';
     const hostname = loc.hostname;
     const port = process.env.NEXT_PUBLIC_LAN_SERVER_PORT || '3005';
 
-    if (isSecure) {
-      const hostWithPort = loc.port ? `${hostname}:${loc.port}` : hostname;
-      return `${loc.protocol}//${hostWithPort}`.replace(/\/$/, '');
-    }
-
-    // For non-secure origins (local dev), always talk to the LAN server port
+    // For non-hosted environments, always use the backend port (3005)
+    // regardless of whether the frontend is served via HTTP or HTTPS
     return `${loc.protocol}//${hostname}:${port}`.replace(/\/$/, '');
   }
 
