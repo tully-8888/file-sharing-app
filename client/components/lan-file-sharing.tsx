@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useLANDiscovery } from "../hooks/use-lan-discovery";
-import { useWebTorrent } from "../hooks/use-webtorrent";
+import { useFileSharing } from "@/contexts/file-sharing-context";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
@@ -71,23 +70,20 @@ function getErrorMessage(error: unknown): string {
 }
 
 export function LANFileSharing() {
-  const { 
-    localUsers, 
-    currentUser, 
-    isDiscoveryActive, 
-    sendMessage, 
-    createRoom, 
-    joinRoom, 
-    currentRoomId, 
-    leaveRoom 
-  } = useLANDiscovery();
-  const { 
+  const {
+    localUsers,
+    currentUser,
+    isDiscoveryActive,
+    sendMessage,
+    createRoom,
+    joinRoom,
+    currentRoomId,
+    leaveRoom,
     createTorrent,
     downloadTorrent,
-    sharedFiles,
     downloadingFiles,
     isClientReady
-  } = useWebTorrent();
+  } = useFileSharing();
   const { toast } = useToast();
   
   const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);

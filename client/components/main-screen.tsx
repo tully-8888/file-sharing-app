@@ -8,10 +8,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { TorrentFile } from "@/hooks/use-webtorrent"
-import { useLANDiscovery } from "@/hooks/use-lan-discovery"
 import { LANFileSharing } from "@/components/lan-file-sharing"
 import { memo, useCallback } from '@/lib/performance'
 import FileList from '@/components/file-list'
+import { useFileSharing } from "@/contexts/file-sharing-context"
 
 interface MainScreenProps {
   onFileShare: (file: File) => void
@@ -62,8 +62,8 @@ export default memo(function MainScreen({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  // Use LAN discovery hook to get users on the network
-  const { isDiscoveryActive } = useLANDiscovery();
+  // Use shared context so we don't open duplicate WebSocket connections
+  const { isDiscoveryActive } = useFileSharing();
 
   // Set current magnet link when provided (only for upload/sharing)
   useEffect(() => {
